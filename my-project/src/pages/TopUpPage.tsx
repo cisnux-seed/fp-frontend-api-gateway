@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import ProductTabs from '../components/ProductTabs';
 import FilterTags from '../components/FilterTags';
 import ItemCard from '../components/ItemCard';
+import OrderSidebar from '../components/OrderSidebar';
 
 const TopUpPage = () => {
   const [quantity, setQuantity] = useState(1);
-  const [selectedItem, setSelectedItem] = useState<{ price: number; label: string } | null>(null);
+  const [selectedItem, setSelectedItem] = useState<{ label: string; price: number } | null>(null);
 
   const items = [
     { label: '3 Diamonds', price: 1200 },
@@ -18,35 +19,27 @@ const TopUpPage = () => {
     { label: '220 Diamonds', price: 59500 },
   ];
 
-  const totalPrice = selectedItem ? selectedItem.price * quantity : 0;
-
   return (
     <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-xl font-bold mb-4">Seller Pilihan di Mobile Legends</h1>
-        <ProductTabs />
-        <FilterTags />
-
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          {items.map((item, idx) => (
-            <ItemCard key={idx} item={item} setSelectedItem={setSelectedItem} />
-          ))}
-        </div>
-
-        <div className="bg-white p-4 rounded shadow max-w-md">
-          <h2 className="text-lg font-semibold mb-2">Informasi Pesanan</h2>
-          <input placeholder="User ID" className="border w-full mb-2 p-2 rounded" />
-          <input placeholder="Zone ID" className="border w-full mb-2 p-2 rounded" />
-
-          <div className="flex items-center gap-2 mb-2">
-            <button onClick={() => setQuantity(q => Math.max(1, q - 1))}>-</button>
-            <span>{quantity}</span>
-            <button onClick={() => setQuantity(q => q + 1)}>+</button>
+      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Kiri: Produk dan Filter */}
+        <div className="md:col-span-2">
+          <h1 className="text-xl font-bold mb-4">Seller Pilihan di Mobile Legends</h1>
+          <ProductTabs />
+          <FilterTags />
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+            {items.map((item, idx) => (
+              <ItemCard key={idx} item={item} setSelectedItem={setSelectedItem} />
+            ))}
           </div>
-
-          <div className="text-lg font-bold mb-2">Total: Rp{totalPrice.toLocaleString()}</div>
-          <button className="w-full bg-orange-500 text-white py-2 rounded">Beli Sekarang</button>
         </div>
+
+        {/* Kanan: Order Form */}
+        <OrderSidebar
+          selectedItem={selectedItem}
+          quantity={quantity}
+          setQuantity={setQuantity}
+        />
       </div>
     </div>
   );
