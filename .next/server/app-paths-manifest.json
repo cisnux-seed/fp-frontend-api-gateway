@@ -1,0 +1,7 @@
+{
+  "/bnipayment/page": "app/bnipayment/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/login/page": "app/login/page.js",
+  "/page": "app/page.js",
+  "/transaction/page": "app/transaction/page.js"
+}
