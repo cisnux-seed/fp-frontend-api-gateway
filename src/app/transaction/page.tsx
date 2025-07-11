@@ -8,21 +8,19 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useTransaction } from '@/hooks/use-transaction';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { GojekIcon, OvoIcon, ShopeePayIcon, BniIcon } from '@/components/icons';
-import { simulateTransaction } from '@/lib/api';
-import { ArrowUpCircle, ArrowRightCircle, Package, Loader2, LogOut, Wallet } from 'lucide-react';
+import { ArrowUpCircle, ArrowRightCircle, Package, Loader2, LogOut, Wallet, History } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import type { PaymentMethod, TransactionType } from '@/lib/data/types';
 
-type PaymentMethod = 'Gojek' | 'OVO' | 'ShopeePay';
-type TransactionType = 'Top-up' | 'Transfer' | 'Beli Paket';
 
 const formSchema = z.object({
-  phoneNumber: z.string().min(10, 'Nomor telepon minimal 10 digit').max(15, 'Nomor telepon maksimal 15 digit').regex(/^\d+$/, 'Hanya angka yang diperbolehkan'),
+  phone_number: z.string().min(10, 'Nomor telepon minimal 10 digit').max(15, 'Nomor telepon maksimal 15 digit').regex(/^\d+$/, 'Hanya angka yang diperbolehkan'),
   nominal: z.number(),
   customNominal: z.string().optional(),
 }).refine(data => {
@@ -31,17 +29,17 @@ const formSchema = z.object({
             return false;
         }
         const customValue = Number(data.customNominal);
-        return !isNaN(customValue) && customValue >= 10000 && customValue % 10000 === 0;
+        return !isNaN(customValue) && customValue >= 10000;
     }
     return true;
 }, {
-    message: 'Nominal custom harus kelipatan 10.000 dan minimal Rp10.000.',
+    message: 'Nominal custom harus diisi dan minimal Rp10.000.',
     path: ['customNominal'],
 });
 
 
 export default function TransactionPage() {
-  const { user, balance, isLoggedIn, isInitializing, setTransaction, logout } = useTransaction();
+  const { user, balance, isLoggedIn, isInitializing, processTransaction, logout } = useTransaction();
   const router = useRouter();
   const { toast } = useToast();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Gojek');
@@ -52,7 +50,7 @@ export default function TransactionPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: { 
-      phoneNumber: '',
+      phone_number: '',
       nominal: 10000,
       customNominal: '',
     },
@@ -102,13 +100,12 @@ export default function TransactionPage() {
 
     setIsLoading(true);
     try {
-      const result = await simulateTransaction({
-        phoneNumber: data.phoneNumber,
+      await processTransaction({
+        phone_number: data.phone_number,
         nominal: transactionNominal,
-        paymentMethod,
-        transactionType,
+        payment_method: paymentMethod,
+        transaction_type: transactionType,
       });
-      setTransaction(result);
       router.push('/bnipayment');
     } catch (error) {
       const err = error as Error;
@@ -131,7 +128,7 @@ export default function TransactionPage() {
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col items-center justify-center bg-background p-4 sm:p-6 md:p-8">
+    <div className="flex min-h-screen w-full flex-col items-center bg-background p-4 sm:p-6 md:p-8 space-y-6">
       <Card className="w-full max-w-2xl shadow-xl">
         <CardHeader>
             <div className="flex w-full items-center justify-between">
@@ -143,25 +140,33 @@ export default function TransactionPage() {
                         Selamat Datang, {user?.username || 'Pengguna'}
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                        Silakan lakukan transaksi Anda.
+                        No. Telp Anda: {user?.phone_number || '-'}
                     </p>
                 </div>
                 <Button variant="ghost" size="icon" onClick={logout} aria-label="Logout" className="flex-shrink-0">
                     <LogOut className="h-5 w-5" />
                 </Button>
             </div>
-             <div className="mt-4 flex items-center gap-3 rounded-lg border bg-muted/50 p-3">
-                <Wallet className="h-6 w-6 text-primary" />
-                <div>
-                    <p className="text-sm text-muted-foreground">Saldo Anda</p>
-                    <p className="text-lg font-bold">Rp{balance.toLocaleString('id-ID')}</p>
+             <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border bg-muted/50 p-3">
+                <div className="flex items-center gap-3">
+                    <Wallet className="h-6 w-6 text-primary" />
+                    <div>
+                        <p className="text-sm text-muted-foreground">Saldo Anda</p>
+                        <p className="text-lg font-bold">Rp{balance.toLocaleString('id-ID')}</p>
+                    </div>
                 </div>
+                <Button variant="outline" size="sm" onClick={() => router.push('/history')}>
+                    <History className="mr-2 h-4 w-4" />
+                    Lihat Riwayat
+                </Button>
             </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <div className="space-y-4">
-              <Label className="text-lg font-semibold">Pilih Mitra Pembayaran</Label>
+              <Label className="text-lg font-semibold">
+                 {transactionType === 'Transfer' ? 'Pilih Rekening Partner' : 'Pilih Mitra Pembayaran'}
+              </Label>
               <div className="grid grid-cols-3 gap-4">
                 {paymentMethods.map(({ name, icon: Icon }) => (
                   <div
@@ -174,20 +179,6 @@ export default function TransactionPage() {
                   </div>
                 ))}
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="phoneNumber" className="text-lg font-semibold">
-                Nomor Telepon
-              </Label>
-              <Input
-                id="phoneNumber"
-                type="tel"
-                placeholder="081234567890"
-                {...form.register('phoneNumber')}
-                className="text-base"
-              />
-              {form.formState.errors.phoneNumber && <p className="text-sm font-medium text-destructive">{form.formState.errors.phoneNumber.message}</p>}
             </div>
 
             <div className="space-y-4">
@@ -204,6 +195,20 @@ export default function TransactionPage() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone_number" className="text-lg font-semibold">
+                {transactionType === 'Transfer' ? 'Nomor Telepon Tujuan' : 'Nomor Telepon'}
+              </Label>
+              <Input
+                id="phone_number"
+                type="tel"
+                placeholder="081234567890"
+                {...form.register('phone_number')}
+                className="text-base"
+              />
+              {form.formState.errors.phone_number && <p className="text-sm font-medium text-destructive">{form.formState.errors.phone_number.message}</p>}
             </div>
             
             <Controller
@@ -265,7 +270,7 @@ export default function TransactionPage() {
 
             <Button type="submit" className="w-full text-lg" size="lg" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-              Bayar Sekarang
+              {transactionType === 'Transfer' ? 'Transfer Sekarang' : 'Bayar Sekarang'}
             </Button>
           </form>
         </CardContent>
