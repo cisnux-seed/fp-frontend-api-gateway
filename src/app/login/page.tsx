@@ -1,5 +1,7 @@
+
 'use client';
 
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -16,6 +18,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTransaction } from '@/hooks/use-transaction';
 import { BniIcon } from '@/components/icons';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   email: z.string().email({ message: 'Alamat email tidak valid.' }),
@@ -23,7 +26,14 @@ const formSchema = z.object({
 });
 
 export default function LoginPage() {
-  const { login } = useTransaction();
+  const { login, isLoggedIn, isInitializing } = useTransaction();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!isInitializing && isLoggedIn) {
+      router.replace('/transaction');
+    }
+  }, [isLoggedIn, isInitializing, router]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -34,8 +44,15 @@ export default function LoginPage() {
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const username = values.email.split('@')[0];
-    login(values.email, values.password, username);
+    login(values.email, values.password);
+  }
+
+  if (isInitializing || isLoggedIn) {
+      return (
+        <div className="flex min-h-screen w-full items-center justify-center">
+            <p>Mengarahkan...</p>
+        </div>
+      )
   }
 
   return (

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -8,8 +9,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { CheckCircle2, XCircle, ArrowLeft, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GojekIcon, OvoIcon, ShopeePayIcon } from '@/components/icons';
+import type { PaymentMethod } from '@/lib/data/types';
 
-const paymentIcons = {
+const paymentIcons: { [key in PaymentMethod]: React.ElementType } = {
   Gojek: GojekIcon,
   OVO: OvoIcon,
   ShopeePay: ShopeePayIcon,
@@ -38,7 +40,7 @@ export default function BniPaymentPage() {
   }
 
   const isSuccess = transaction.status === 'Success';
-  const PaymentIcon = paymentIcons[transaction.paymentMethod];
+  const PaymentIcon = paymentIcons[transaction.payment_method];
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background p-4">
@@ -56,14 +58,14 @@ export default function BniPaymentPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="rounded-lg border p-4 space-y-3">
-              <InfoRow label="Nomor Telepon" value={transaction.phoneNumber} />
+              <InfoRow label="Nomor Telepon" value={transaction.phone_number} />
               <InfoRow label="Mitra Pembayaran">
                 <div className="flex items-center gap-2">
                     {PaymentIcon && <PaymentIcon className="h-5 w-5" />}
-                    <span>{transaction.paymentMethod}</span>
+                    <span>{transaction.payment_method}</span>
                 </div>
               </InfoRow>
-              <InfoRow label="Jenis Transaksi" value={transaction.transactionType} />
+              <InfoRow label="Jenis Transaksi" value={transaction.transaction_type} />
               <InfoRow label="Nominal" value={`Rp${transaction.nominal.toLocaleString('id-ID')}`} />
           </div>
         </CardContent>
