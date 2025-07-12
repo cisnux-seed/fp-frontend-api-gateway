@@ -13,10 +13,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { GojekIcon, OvoIcon, ShopeePayIcon, BniIcon } from '@/components/icons';
-import { ArrowUpCircle, ArrowRightCircle, Package, Loader2, LogOut, Wallet, History } from 'lucide-react';
+import { Loader2, LogOut, Wallet, History } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import type { PaymentMethod, TransactionType } from '@/lib/data/types';
+import type { PaymentMethod } from '@/lib/types';
 
 
 const formSchema = z.object({
@@ -43,7 +43,6 @@ export default function TransactionPage() {
   const router = useRouter();
   const { toast } = useToast();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('Gojek');
-  const [transactionType, setTransactionType] = useState<TransactionType>('Top-up');
   const [isLoading, setIsLoading] = useState(false);
   const [showCustomNominal, setShowCustomNominal] = useState(false);
 
@@ -78,12 +77,6 @@ export default function TransactionPage() {
     { name: 'ShopeePay', icon: ShopeePayIcon },
   ];
 
-  const transactionTypes: { name: TransactionType; icon: React.ElementType }[] = [
-    { name: 'Top-up', icon: ArrowUpCircle },
-    { name: 'Transfer', icon: ArrowRightCircle },
-    { name: 'Beli Paket', icon: Package },
-  ];
-
   const nominals = [10000, 25000, 50000, 100000];
 
   const onSubmit = async (data: z.infer<typeof formSchema>) => {
@@ -104,16 +97,12 @@ export default function TransactionPage() {
         phone_number: data.phone_number,
         nominal: transactionNominal,
         payment_method: paymentMethod,
-        transaction_type: transactionType,
+        transaction_type: 'Top-up', // Hardcoded as Top-up
       });
       router.push('/bnipayment');
     } catch (error) {
-      const err = error as Error;
-      toast({
-        variant: 'destructive',
-        title: 'Terjadi Kesalahan',
-        description: err.message,
-      });
+      // Error handling is now managed within the context, which shows a toast.
+      // We can keep this block empty or add specific logic for this page if needed.
     } finally {
       setIsLoading(false);
     }
@@ -165,7 +154,7 @@ export default function TransactionPage() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <div className="space-y-4">
               <Label className="text-lg font-semibold">
-                 {transactionType === 'Transfer' ? 'Pilih Rekening Partner' : 'Pilih Mitra Pembayaran'}
+                 Pilih Mitra Pembayaran Top-up
               </Label>
               <div className="grid grid-cols-3 gap-4">
                 {paymentMethods.map(({ name, icon: Icon }) => (
@@ -181,25 +170,9 @@ export default function TransactionPage() {
               </div>
             </div>
 
-            <div className="space-y-4">
-              <Label className="text-lg font-semibold">Jenis Transaksi</Label>
-              <div className="grid grid-cols-3 gap-4">
-                {transactionTypes.map(({ name, icon: Icon }) => (
-                  <div
-                    key={name}
-                    onClick={() => setTransactionType(name)}
-                    className={`flex cursor-pointer items-center justify-center gap-3 rounded-lg border-2 p-4 transition-all ${transactionType === name ? 'border-primary bg-primary/5' : 'border-border'}`}
-                  >
-                    <Icon className={`h-6 w-6 ${transactionType === name ? 'text-primary' : 'text-muted-foreground'}`} />
-                    <span className="text-sm font-medium">{name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="phone_number" className="text-lg font-semibold">
-                {transactionType === 'Transfer' ? 'Nomor Telepon Tujuan' : 'Nomor Telepon'}
+                Nomor Telepon
               </Label>
               <Input
                 id="phone_number"
@@ -259,7 +232,7 @@ export default function TransactionPage() {
                         id="customNominal"
                         type="number"
                         placeholder="Contoh: 20000"
-                        step="10000"
+                        step="1000"
                         {...form.register('customNominal')}
                         className="text-base"
                     />
@@ -267,10 +240,9 @@ export default function TransactionPage() {
                 </div>
             )}
 
-
             <Button type="submit" className="w-full text-lg" size="lg" disabled={isLoading}>
               {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-              {transactionType === 'Transfer' ? 'Transfer Sekarang' : 'Bayar Sekarang'}
+              Top Up Sekarang
             </Button>
           </form>
         </CardContent>

@@ -9,14 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { format } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { GojekIcon, OvoIcon, ShopeePayIcon } from '@/components/icons';
-import { ArrowLeft, CheckCircle2, XCircle, ArrowUpCircle, ArrowRightCircle, Package, Loader2, History as HistoryIcon, FileText } from 'lucide-react';
-import type { Transaction, PaymentMethod, TransactionType } from '@/lib/data/types';
+import { ArrowLeft, CheckCircle2, XCircle, ArrowUpCircle, Loader2, History as HistoryIcon, FileText } from 'lucide-react';
+import type { Transaction, PaymentMethod } from '@/lib/types';
 
-const transactionTypeIcons: { [key in TransactionType]: React.ElementType } = {
-  'Top-up': ArrowUpCircle,
-  'Transfer': ArrowRightCircle,
-  'Beli Paket': Package,
-};
 
 const paymentMethodIcons: { [key in PaymentMethod]: React.ElementType } = {
   Gojek: GojekIcon,
@@ -64,14 +59,13 @@ export default function HistoryPage() {
           {history.length > 0 ? (
             <div className="space-y-4">
               {history.map((t: Transaction) => {
-                 const TransactionIcon = transactionTypeIcons[t.transaction_type] || FileText;
                  const PaymentIcon = paymentMethodIcons[t.payment_method];
                  const isSuccess = t.status === 'Success';
                 
                  return (
                   <div key={t.id} className="flex items-center space-x-4 rounded-lg border p-4">
                     <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-                        <TransactionIcon className="h-6 w-6 text-muted-foreground" />
+                        <ArrowUpCircle className="h-6 w-6 text-muted-foreground" />
                     </div>
                     <div className="flex-grow">
                       <div className="flex items-center gap-2">

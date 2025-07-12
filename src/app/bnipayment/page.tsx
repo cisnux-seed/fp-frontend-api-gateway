@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation';
 import { useTransaction } from '@/hooks/use-transaction';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { CheckCircle2, XCircle, ArrowLeft, LogOut } from 'lucide-react';
+import { CheckCircle2, XCircle, ArrowLeft, LogOut, ArrowUpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GojekIcon, OvoIcon, ShopeePayIcon } from '@/components/icons';
-import type { PaymentMethod } from '@/lib/data/types';
+import type { PaymentMethod } from '@/lib/types';
 
 const paymentIcons: { [key in PaymentMethod]: React.ElementType } = {
   Gojek: GojekIcon,
@@ -65,7 +65,12 @@ export default function BniPaymentPage() {
                     <span>{transaction.payment_method}</span>
                 </div>
               </InfoRow>
-              <InfoRow label="Jenis Transaksi" value={transaction.transaction_type} />
+              <InfoRow label="Jenis Transaksi">
+                <div className="flex items-center gap-2">
+                    <ArrowUpCircle className="h-5 w-5 text-muted-foreground" />
+                    <span>{transaction.transaction_type}</span>
+                </div>
+              </InfoRow>
               <InfoRow label="Nominal" value={`Rp${transaction.nominal.toLocaleString('id-ID')}`} />
           </div>
         </CardContent>
