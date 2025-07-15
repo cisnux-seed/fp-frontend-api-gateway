@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -15,19 +15,22 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTransaction } from '@/hooks/use-transaction';
 import { BniIcon } from '@/components/icons';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 
 const formSchema = z.object({
-  email: z.string().email({ message: 'Alamat email tidak valid.' }),
+  identifier: z.string().min(1, { message: 'User ID atau Email harus diisi.' }),
   password: z.string().min(6, { message: 'Password minimal 6 karakter.' }),
 });
 
 export default function LoginPage() {
   const { login, isLoggedIn, isInitializing } = useTransaction();
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (!isInitializing && isLoggedIn) {
@@ -38,13 +41,15 @@ export default function LoginPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: '',
+      identifier: '',
       password: '',
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
-    login(values.email, values.password);
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+    setIsLoading(true);
+    await login(values.identifier, values.password);
+    setIsLoading(false);
   }
 
   if (isInitializing || isLoggedIn) {
@@ -70,12 +75,12 @@ export default function LoginPage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
-                name="email"
+                name="identifier"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>User ID</FormLabel>
+                    <FormLabel>User ID / Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="contoh@email.com" {...field} />
+                      <Input placeholder="username atau contoh@email.com" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -88,18 +93,27 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input type="password" placeholder="******" {...field} />
+                      <Input type="password" placeholder="******" {...field} disabled={isLoading} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Login
               </Button>
             </form>
           </Form>
         </CardContent>
+        <CardFooter className="flex justify-center text-sm">
+          <p className="text-muted-foreground">
+              Belum punya akun?{' '}
+              <Link href="/register" className="font-semibold text-primary hover:underline">
+                  Daftar sekarang!
+              </Link>
+          </p>
+        </CardFooter>
       </Card>
     </div>
   );

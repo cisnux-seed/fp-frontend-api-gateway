@@ -1,4 +1,5 @@
-import type { Transaction, TransactionStatus, TransactionInput } from './data/types';
+
+import type { TransactionStatus, TransactionInput } from './types';
 
 /**
  * Mensimulasikan panggilan API ke sistem pihak ketiga (misalnya, Midtrans, Xendit).
@@ -6,7 +7,7 @@ import type { Transaction, TransactionStatus, TransactionInput } from './data/ty
  * @param details - Detail input transaksi dari form.
  * @returns Status transaksi ('Success' atau 'Failed').
  */
-export const simulatePartnerApiCall = (details: Omit<TransactionInput, 'status'> & { status: TransactionStatus }): Promise<TransactionStatus> => {
+export const simulatePartnerApiCall = (details: Omit<TransactionInput, 'status'>): Promise<TransactionStatus> => {
   return new Promise((resolve) => {
     console.log('Memulai simulasi transaksi ke mitra:', details.payment_method);
     
