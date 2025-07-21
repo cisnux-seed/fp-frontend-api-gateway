@@ -33,12 +33,6 @@ export interface AuthResponse {
   refreshToken: string;
 }
 
-export interface UserRegister {
-  email: string;
-  username: string;
-  password?: string; // Optional on return
-}
-
 export interface UserAuth {
   username: string; // Bisa username atau email
   password: string;
@@ -59,7 +53,7 @@ export interface AccountResponse {
 }
 
 export type PaymentMethodApi = "GOPAY" | "SHOPEE_PAY" | "BANK_TRANSFER";
-export type PaymentMethodUI = 'Gojek' | 'OVO' | 'ShopeePay';
+export type PaymentMethodUI = 'Gojek' | 'ShopeePay';
 
 export interface TopupRequest {
   amount: number;

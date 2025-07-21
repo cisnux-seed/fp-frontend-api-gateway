@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { GojekIcon, OvoIcon, ShopeePayIcon, BniIcon } from '@/components/icons';
+import { GojekIcon, ShopeePayIcon, BniIcon } from '@/components/icons';
 import { Loader2, LogOut, Wallet, History } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -41,7 +41,6 @@ const formSchema = z.object({
 const exampleNumbers: Record<PaymentMethodUI, string> = {
   Gojek: '898081234560',
   ShopeePay: '897081234561',
-  OVO: '81234567890 (semua nomor kecuali berakhiran 9)',
 };
 
 export default function TransactionPage() {
@@ -79,7 +78,6 @@ export default function TransactionPage() {
 
   const paymentMethods: { name: PaymentMethodUI; icon: React.ElementType }[] = [
     { name: 'Gojek', icon: GojekIcon },
-    { name: 'OVO', icon: OvoIcon },
     { name: 'ShopeePay', icon: ShopeePayIcon },
   ];
 

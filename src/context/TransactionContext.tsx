@@ -4,7 +4,7 @@
 import { createContext, useState, useEffect, type ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import type { UserAuth, UserRegister, AuthResponse, AccountResponse, TransactionResponse, TopupRequest, PageableResponse, PaymentMethodUI, WebResponse } from '@/lib/types';
+import type { UserAuth, AuthResponse, AccountResponse, TransactionResponse, TopupRequest, PaymentMethodUI, WebResponse } from '@/lib/types';
 import apiService from '@/lib/apiService';
 import { jwtDecode, type JwtPayload } from 'jwt-decode';
 
@@ -27,7 +27,6 @@ export interface TransactionContextType {
   history: TransactionResponse[];
   transactionResult: WebResponse<TransactionResponse> | null;
   login: (credentials: UserAuth) => Promise<void>;
-  register: (details: UserRegister) => Promise<WebResponse<string>>;
   logout: () => void;
   processTransaction: (transactionDetails: Omit<TopupRequest, 'description' | 'paymentMethod'> & { paymentMethod: PaymentMethodUI }) => Promise<void>;
   fetchUserData: () => Promise<void>;
@@ -87,7 +86,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initializeApp = async () => {
       setIsInitializing(true);
-      setTransactionResult(null); // Selalu reset hasil transaksi saat inisialisasi
+      setTransactionResult(null); 
       const token = localStorage.getItem('accessToken');
       
       if (token) {
@@ -102,7 +101,6 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             apiService.defaults.headers.Authorization = `Bearer ${token}`;
             await fetchUserData();
         } else {
-          // Token ada tapi tidak bisa di-decode
           logout();
         }
       } else {
@@ -144,15 +142,10 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const register = async (details: UserRegister): Promise<WebResponse<string>> => {
-      return await apiService.post('/api/auth/register', details);
-  };
-
   const processTransaction = async (transactionDetails: Omit<TopupRequest, 'description' | 'paymentMethod'> & { paymentMethod: PaymentMethodUI }): Promise<void> => {
       setTransactionResult(null);
       const uiToApiMethodMap: Record<PaymentMethodUI, TopupRequest['paymentMethod']> = {
         'Gojek': 'GOPAY',
-        'OVO': 'SHOPEE_PAY', // OVO disamakan dengan ShopeePay untuk sementara
         'ShopeePay': 'SHOPEE_PAY',
       };
       
@@ -165,7 +158,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
 
       try {
         const response: WebResponse<TransactionResponse> = await apiService.post('/api/payment/topup', payload);
-        await fetchUserData(); // Refresh saldo dan riwayat
+        await fetchUserData(); 
         setTransactionResult(response);
       } catch (error: any) {
         toast({
@@ -173,14 +166,14 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
             title: 'Transaksi Gagal',
             description: error.meta?.message || 'Gagal memproses transaksi.',
         });
-        setTransactionResult(error as WebResponse<TransactionResponse>); // Simpan hasil error
+        setTransactionResult(error as WebResponse<TransactionResponse>); 
         throw error;
       }
   };
 
   return (
     <TransactionContext.Provider
-      value={{ isLoggedIn, isInitializing, user, account, history, transactionResult, login, register, logout, processTransaction, fetchUserData }}
+      value={{ isLoggedIn, isInitializing, user, account, history, transactionResult, login, logout, processTransaction, fetchUserData }}
     >
       {children}
     </TransactionContext.Provider>

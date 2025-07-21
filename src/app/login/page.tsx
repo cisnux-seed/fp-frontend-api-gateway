@@ -69,7 +69,7 @@ export default function LoginPage() {
   return (
     <div 
         className="flex min-h-screen w-full items-center justify-center p-4 bg-cover bg-center"
-        style={{ backgroundImage: "url('/images/login-bg.png')" }}
+        style={{ backgroundImage: "url('/images/logo-bni.jpg')" }}
     >
         <div className="absolute inset-0 bg-black/50 z-0" />
 
