@@ -4,12 +4,19 @@ import { verifyToken } from '@/lib/auth-mock';
 import type { TopupRequest, TransactionResponse } from '@/lib/types';
 import { db } from '@/lib/dummy-db';
 
-// Daftar nomor yang diizinkan untuk berhasil
-const allowedPhoneNumbers = new Set([
-  "+6281293846571", "+6285773092184", "+6287812349091", "+6282229901765",
-  "+6281317758842", "+6285266104738", "+6285978452203", "+6281996731156",
-  "+6287754209934", "+6283159914870"
+// Daftar nomor yang diizinkan untuk berhasil, sekarang dipisah per layanan
+const gopayAllowedNumbers = new Set([
+  "898081234560", "898081234561", "898081234562", "898081234563",
+  "898081234564", "898081234565", "898081234566", "898081234567",
+  "898081234568", "898081234569"
 ]);
+
+const shopeePayAllowedNumbers = new Set([
+  "897081234560", "897081234561", "897081234562", "897081234563",
+  "897081234564", "897081234565", "897081234566", "897081234567",
+  "897081234568", "897081234569"
+]);
+
 
 export async function POST(req: NextRequest) {
     const auth = verifyToken(req);
@@ -32,7 +39,21 @@ export async function POST(req: NextRequest) {
         
         await new Promise(resolve => setTimeout(resolve, 1200));
 
-        const isSuccess = allowedPhoneNumbers.has(body.phone_number);
+        let isSuccess = false;
+        let failureMessage = "Nomor telepon tidak terdaftar di layanan mitra.";
+
+        switch (body.paymentMethod) {
+            case 'GOPAY':
+                isSuccess = gopayAllowedNumbers.has(body.phone_number);
+                break;
+            case 'SHOPEE_PAY':
+                isSuccess = shopeePayAllowedNumbers.has(body.phone_number);
+                break;
+            default:
+                isSuccess = false;
+                failureMessage = "Metode pembayaran tidak didukung.";
+        }
+
         const currentBalance = db.account.balance;
         const newTransactionId = `TXN-${Date.now()}`;
         
@@ -81,7 +102,7 @@ export async function POST(req: NextRequest) {
              db.transactions.push(transactionData);
 
              return NextResponse.json({
-                meta: { code: "422", message: "Nomor telepon tidak terdaftar di layanan mitra." },
+                meta: { code: "422", message: failureMessage },
                 data: transactionData,
             }, { status: 422 });
         }

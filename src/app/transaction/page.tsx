@@ -17,10 +17,11 @@ import { Loader2, LogOut, Wallet, History } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import type { PaymentMethodUI } from '@/lib/types';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormMessage } from '@/components/ui/form';
 
 
 const formSchema = z.object({
-  phone_number: z.string().min(10, 'Nomor telepon minimal 10 digit').max(15, 'Nomor telepon maksimal 15 digit').regex(/^\+?\d+$/, 'Nomor telepon harus berupa angka, dapat diawali +'),
+  phone_number: z.string().min(10, 'Nomor telepon minimal 10 digit').max(15, 'Nomor telepon maksimal 15 digit').regex(/^\d+$/, 'Nomor telepon harus berupa angka.'),
   nominal: z.number(),
   customNominal: z.string().optional(),
 }).refine(data => {
@@ -33,10 +34,15 @@ const formSchema = z.object({
     }
     return true;
 }, {
-    message: 'Nominal custom harus diisi dan minimal Rp10.000.',
+    message: 'Nomor custom harus diisi dan minimal Rp10.000.',
     path: ['customNominal'],
 });
 
+const exampleNumbers: Record<PaymentMethodUI, string> = {
+  Gojek: '898081234560',
+  ShopeePay: '897081234561',
+  OVO: '81234567890 (semua nomor kecuali berakhiran 9)',
+};
 
 export default function TransactionPage() {
   const { user, account, isLoggedIn, isInitializing, processTransaction, logout } = useTransaction();
@@ -151,100 +157,117 @@ export default function TransactionPage() {
             </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <div className="space-y-4">
-              <Label className="text-lg font-semibold">
-                 Pilih Mitra Pembayaran Top-up
-              </Label>
-              <div className="grid grid-cols-3 gap-4">
-                {paymentMethods.map(({ name, icon: Icon }) => (
-                  <div
-                    key={name}
-                    onClick={() => setPaymentMethod(name)}
-                    className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 p-4 transition-all ${paymentMethod === name ? 'border-primary bg-primary/5' : 'border-border'}`}
-                  >
-                    <Icon className="h-8 w-8" />
-                    <span className="text-sm font-medium">{name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="phone_number" className="text-lg font-semibold">
-                Nomor Telepon
-              </Label>
-              <Input
-                id="phone_number"
-                type="tel"
-                placeholder="+6281234567890"
-                {...form.register('phone_number')}
-                className="text-base"
-              />
-              {form.formState.errors.phone_number && <p className="text-sm font-medium text-destructive">{form.formState.errors.phone_number.message}</p>}
-            </div>
-            
-            <Controller
-              name="nominal"
-              control={form.control}
-              render={({ field }) => (
-                <RadioGroup
-                  onValueChange={(value) => {
-                    const numValue = Number(value);
-                    field.onChange(numValue);
-                    if (numValue !== -1) {
-                      form.setValue('customNominal', '');
-                    }
-                  }}
-                  value={String(field.value)}
-                  className="space-y-2"
-                >
-                    <Label className="text-lg font-semibold">Pilih Nominal</Label>
-                    <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
-                    {nominals.map((n) => (
-                      <Label
-                        key={n}
-                        htmlFor={`nominal-${n}`}
-                        className={cn('flex cursor-pointer items-center justify-center rounded-md border-2 p-4 font-semibold transition-all', nominalValue === n ? 'border-primary bg-primary/5 text-primary' : 'border-border')}
-                      >
-                        <RadioGroupItem value={String(n)} id={`nominal-${n}`} className="sr-only" />
-                        Rp{n.toLocaleString('id-ID')}
-                      </Label>
-                    ))}
-                     <Label
-                        htmlFor="nominal-custom"
-                        className={cn('flex cursor-pointer items-center justify-center rounded-md border-2 p-4 font-semibold transition-all', nominalValue === -1 ? 'border-primary bg-primary/5 text-primary' : 'border-border')}
-                      >
-                        <RadioGroupItem value="-1" id="nominal-custom" className="sr-only" />
-                        Lainnya
-                      </Label>
-                  </div>
-                </RadioGroup>
-              )}
-            />
-            
-            {showCustomNominal && (
-                 <div className="space-y-2">
-                    <Label htmlFor="customNominal" className="text-lg font-semibold">
-                        Masukkan Nominal Custom
-                    </Label>
-                    <Input
-                        id="customNominal"
-                        type="number"
-                        placeholder="Contoh: 20000"
-                        step="1000"
-                        {...form.register('customNominal')}
-                        className="text-base"
-                    />
-                    {form.formState.errors.customNominal && <p className="text-sm font-medium text-destructive">{form.formState.errors.customNominal.message}</p>}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+              <div className="space-y-4">
+                <Label className="text-lg font-semibold">
+                  Pilih Mitra Pembayaran Top-up
+                </Label>
+                <div className="grid grid-cols-3 gap-4">
+                  {paymentMethods.map(({ name, icon: Icon }) => (
+                    <div
+                      key={name}
+                      onClick={() => setPaymentMethod(name)}
+                      className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 p-4 transition-all ${paymentMethod === name ? 'border-primary bg-primary/5' : 'border-border'}`}
+                    >
+                      <Icon className="h-8 w-8" />
+                      <span className="text-sm font-medium">{name}</span>
+                    </div>
+                  ))}
                 </div>
-            )}
+              </div>
 
-            <Button type="submit" className="w-full text-lg" size="lg" disabled={isLoading}>
-              {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
-              Top Up Sekarang
-            </Button>
-          </form>
+              <FormField
+                control={form.control}
+                name="phone_number"
+                render={({ field }) => (
+                  <FormItem>
+                    <Label htmlFor="phone_number" className="text-lg font-semibold">Nomor Telepon</Label>
+                    <FormControl>
+                        <Input
+                            id="phone_number"
+                            type="tel"
+                            placeholder={`Contoh: ${exampleNumbers[paymentMethod]}`}
+                            {...field}
+                            className="text-base"
+                        />
+                    </FormControl>
+                    <FormDescription>
+                       Untuk transaksi {paymentMethod} yang sukses, coba: {exampleNumbers[paymentMethod]}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <Controller
+                name="nominal"
+                control={form.control}
+                render={({ field }) => (
+                  <RadioGroup
+                    onValueChange={(value) => {
+                      const numValue = Number(value);
+                      field.onChange(numValue);
+                      if (numValue !== -1) {
+                        form.setValue('customNominal', '');
+                      }
+                    }}
+                    value={String(field.value)}
+                    className="space-y-2"
+                  >
+                      <Label className="text-lg font-semibold">Pilih Nominal</Label>
+                      <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+                      {nominals.map((n) => (
+                        <Label
+                          key={n}
+                          htmlFor={`nominal-${n}`}
+                          className={cn('flex cursor-pointer items-center justify-center rounded-md border-2 p-4 font-semibold transition-all', nominalValue === n ? 'border-primary bg-primary/5 text-primary' : 'border-border')}
+                        >
+                          <RadioGroupItem value={String(n)} id={`nominal-${n}`} className="sr-only" />
+                          Rp{n.toLocaleString('id-ID')}
+                        </Label>
+                      ))}
+                      <Label
+                          htmlFor="nominal-custom"
+                          className={cn('flex cursor-pointer items-center justify-center rounded-md border-2 p-4 font-semibold transition-all', nominalValue === -1 ? 'border-primary bg-primary/5 text-primary' : 'border-border')}
+                        >
+                          <RadioGroupItem value="-1" id="nominal-custom" className="sr-only" />
+                          Lainnya
+                        </Label>
+                    </div>
+                  </RadioGroup>
+                )}
+              />
+              
+              {showCustomNominal && (
+                  <FormField
+                    control={form.control}
+                    name="customNominal"
+                    render={({ field }) => (
+                        <FormItem>
+                            <Label htmlFor="customNominal" className="text-lg font-semibold">Masukkan Nominal Custom</Label>
+                            <FormControl>
+                                <Input
+                                    id="customNominal"
+                                    type="number"
+                                    placeholder="Contoh: 20000"
+                                    step="1000"
+                                    {...field}
+                                    className="text-base"
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+              )}
+
+              <Button type="submit" className="w-full text-lg" size="lg" disabled={isLoading}>
+                {isLoading ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : null}
+                Top Up Sekarang
+              </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>
