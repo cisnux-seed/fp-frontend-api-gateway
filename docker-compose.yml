@@ -1,0 +1,18 @@
+
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: bni_postgres_local
+    restart: always
+    environment:
+      POSTGRES_DB: final_project_bni
+      POSTGRES_USER: final_project_bni_user
+      POSTGRES_PASSWORD:  mysecretpassword
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

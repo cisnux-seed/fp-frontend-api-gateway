@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fp-frontend
+  namespace: final-app-deployment
+  labels:
+    app: fp-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fp-frontend
+  template:
+    metadata:
+      labels:
+        app: fp-frontend
+    spec:
+      containers:
+        - name: fp-frontend
+          image:  
+          ports:
+            - containerPort: 9002
+          imagePullSecrets:
+            - name: dockerhub-secret
+          env:
+            - name: POSTGRES_URL
+              valueFrom:
+                secretKeyRef:
+                  name: fp-frontend-secret
+                  key: POSTGRES_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: fp-frontend-secret
+                  key: JWT_SECRET
+            - name: NEXT_PUBLIC_APP_URL
+              valueFrom:
+                secretKeyRef:
+                  name: fp-frontend-secret
+                  key: NEXT_PUBLIC_APP_URL
+            - name: NEXT_PUBLIC_SHOPEEPAY_URL
+              valueFrom:
+                secretKeyRef:
+                  name: fp-frontend-secret
+                  key: NEXT_PUBLIC_SHOPEEPAY_URL
+            - name: NEXT_PUBLIC_GOPAY_URL
+              valueFrom:
+                secretKeyRef:
+                  name: fp-frontend-secret
+                  key: NEXT_PUBLIC_GOPAY_URL
