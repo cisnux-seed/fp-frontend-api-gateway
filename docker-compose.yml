@@ -1,7 +1,0 @@
-version: '3'
-services:
-  frontend:
-    image: frontend-nextjs   # Ganti sesuai nama image hasil build kamu
-    ports:
-      - "3000:3000"
-    restart: unless-stopped
