@@ -36,7 +36,19 @@ export interface TransactionContextType {
   }) => Promise<void>;
   fetchUserData: () => Promise<void>;
   resetTransaction: () => void;
+  account: AccountDataType | null;
 }
+
+interface AccountDataType {
+  id: string;
+  user_id: number;
+  balance: number;
+  currency: string;
+  account_status: string;
+  created_at: string;
+  updated_at: string;
+}
+
 
 export const TransactionContext = createContext<TransactionContextType | null>(null);
 
@@ -47,7 +59,8 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
   const [balance, setBalance] = useState<number>(0);
   const [history, setHistory] = useState<Transaction[]>([]);
   const [transaction, setTransactionState] = useState<Transaction | null>(null);
-  
+  const [account, setAccount] = useState<AccountDataType | null>(null);
+
   const router = useRouter();
   const { toast } = useToast();
 
@@ -89,7 +102,7 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
     if (!currentToken) return;
 
     try {
-      const response = await fetch(`/api/transactions`, {
+      const response = await fetch(`https://kong-proxy-one-gate-payment.apps.ocp-one-gate-payment.skynux.fun/api/payment/account`, {
         method: 'GET',
         headers: getAuthHeaders(),
       });
@@ -104,9 +117,10 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
         // Gunakan pesan dari server jika ada, jika tidak gunakan pesan default
         throw new Error(data.message || 'Gagal memuat data pengguna.');
       }
-      
-      setBalance(data.balance);
+
+      setBalance(data.data?.balance || 0);  // ✅ Correct
       setHistory(data.history);
+      setAccount(data.data);
 
     } catch (error) {
       console.error("Fetch user data error:", error);
@@ -206,52 +220,49 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
   };
 
   const processTransaction = async (transactionDetails: Omit<TransactionInput, 'status'>): Promise<void> => {
-      resetTransaction();
+    resetTransaction();
 
-      if (!token) {
-        toast({ variant: 'destructive', title: 'Sesi Tidak Ditemukan', description: 'Silakan login kembali.' });
-        logout();
-        return Promise.reject(new Error("User tidak sedang login"));
-      }
+    if (!token) {
+      toast({ variant: 'destructive', title: 'Sesi Tidak Ditemukan', description: 'Silakan login kembali.' });
+      logout();
+      return Promise.reject(new Error("User tidak sedang login"));
+    }
 
-      try {
-        const response = await fetch('/api/transactions', {
+    try {
+      const response = await fetch(
+          'https://kong-proxy-one-gate-payment.apps.ocp-one-gate-payment.skynux.fun/api/payment/wallet/topup',
+          {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify(transactionDetails),
-        });
+          }
+      );
 
-        const resultData = await response.json();
+      const resultData = await response.json();
 
-        if (!response.ok) {
-            // Jika respons tidak OK, kita lempar error dengan pesan dari server
-            // agar bisa ditangkap oleh blok catch
-            throw new Error(resultData.message || 'Gagal memproses transaksi.');
-        }
-        
-        // Jika berhasil (respons OK), perbarui data pengguna dan set state transaksi
-        await fetchUserData(); // Refresh balance & history
-        setTransactionState(resultData); // Set state transaksi yang berhasil
-        return Promise.resolve(); // Kembalikan promise resolve
-        
-      } catch (error) {
-        // Blok ini akan menangkap error dari fetch (misal, jaringan) atau dari throw di atas
-        await fetchUserData(); // Tetap refresh data untuk mendapatkan riwayat transaksi yg gagal
-        if (error instanceof Error) {
-            toast({
-                variant: 'destructive',
-                title: 'Transaksi Gagal',
-                description: error.message,
-            });
-        }
-        // Lemparkan error lagi agar komponen pemanggil tahu bahwa proses gagal
-        return Promise.reject(error);
+      if (!response.ok) {
+        throw new Error(resultData.message || 'Gagal memproses top up.');
       }
+
+      await fetchUserData(); // Refresh balance
+      setTransactionState(resultData.data); // Simpan transaksi
+      return Promise.resolve();
+    } catch (error) {
+      await fetchUserData(); // Tetap refresh balance meskipun gagal
+      if (error instanceof Error) {
+        toast({
+          variant: 'destructive',
+          title: 'Top Up Gagal',
+          description: error.message,
+        });
+      }
+      return Promise.reject(error);
+    }
   };
 
   return (
     <TransactionContext.Provider
-      value={{ user, balance, history, isLoggedIn, isInitializing, transaction, login, logout, processTransaction, fetchUserData, resetTransaction }}
+      value={{ user, balance, account ,history, isLoggedIn, isInitializing, transaction, login, logout, processTransaction, fetchUserData, resetTransaction }}
     >
       {children}
     </TransactionContext.Provider>
