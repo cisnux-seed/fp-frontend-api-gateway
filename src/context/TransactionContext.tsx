@@ -135,7 +135,10 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
               // Mengambil email dari 'user' object yang dikirim saat login, bukan dari token
               const storedUser = localStorage.getItem('bni_user_data');
               const email = storedUser ? JSON.parse(storedUser).email : '';
-              setUser({ username: decodedUser.username, email });
+              setUser({
+                username: decodedUser?.username || 'unknown',
+                email: decodedUser?.email || 'unknown'
+              });
             }
           }
         }
@@ -161,31 +164,34 @@ export function TransactionProvider({ children }: { children: ReactNode }) {
 
   const login = async (identifier: string, pass: string) => {
     try {
-      const response = await fetch('/api/login', {
+      const response = await fetch('https://kong-proxy-one-gate-payment.apps.ocp-one-gate-payment.skynux.fun/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier, password: pass }),
+        body: JSON.stringify({ username: identifier, password: pass }),
       });
 
       const data = await response.json();
+      // console.log("Login response:", data);
+      console.log("Login response:", JSON.stringify(data, null, 2));
 
-      if (!response.ok || !data.token) {
+      if (!response.ok || !data.data?.access_token) {
         throw new Error(data.message || 'User ID atau password salah.');
       }
-      
-      localStorage.setItem(TOKEN_KEY, data.token);
-      localStorage.setItem('bni_user_data', JSON.stringify(data.user)); // Simpan data user
-      setToken(data.token); // Ini akan memicu useEffect untuk fetchUserData
-      const decodedUser = decodeToken(data.token);
-      if (decodedUser) {
-        setUser({ username: decodedUser.username, email: data.user.email });
-      }
+
+      localStorage.setItem(TOKEN_KEY, data.data.access_token);
+      setToken(data.data.access_token);
+
+      const decodedUser = decodeToken(data.data.access_token);
+      const userEmail = decodedUser?.email ?? 'unknown';
+      const userName = decodedUser?.username ?? 'unknown';
+
+      setUser({ username: userName, email: userEmail });
 
       toast({
         title: 'Login Berhasil',
-        description: `Selamat datang kembali, ${data.user.username}!`,
+        description: `Selamat datang kembali, ${userName}!`,
       });
-      
+
       // Reset state transaksi saat login, untuk jaga-jaga
       resetTransaction();
       router.replace('/transaction');
