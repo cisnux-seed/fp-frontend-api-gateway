@@ -51,15 +51,46 @@ pipeline {
                         
                         # Run TypeScript type checking (if using TypeScript)
                         if [ -f "tsconfig.json" ]; then
-                            npm run type-check || npx tsc --noEmit || echo "Type checking completed"
+                            npm run typecheck || echo "Type checking completed"
                         fi
-                        
+
                         echo "✅ Code quality checks completed"
                     """
                 }
             }
         }
 
+        stage('Run Tests') {
+            steps {
+                script {
+                    echo "Running Jest tests with coverage..."
+                    sh """
+                        # Run tests with coverage
+                        npm run test:ci
+
+                        # Verify coverage directory exists
+                        ls -la coverage/ || echo "Coverage directory not found"
+
+                        echo "✅ Tests completed successfully"
+                    """
+                }
+            }
+            post {
+                always {
+                    // Archive coverage reports
+                    script {
+                        if (fileExists('coverage/lcov.info')) {
+                            echo "LCOV coverage report found"
+                        }
+                        if (fileExists('coverage/index.html')) {
+                            echo "HTML coverage report generated"
+                        }
+                    }
+                    // Archive coverage reports
+                    archiveArtifacts artifacts: 'coverage/**/*', allowEmptyArchive: true
+                }
+            }
+        }
         stage('SAST Analysis') {
             steps {
                 withSonarQubeEnv('SonarQube') {
@@ -75,8 +106,10 @@ pipeline {
                                 -Dsonar.projectKey=${APP_NAME} \\
                                 -Dsonar.projectName='${APP_NAME}' \\
                                 -Dsonar.sources=src,pages,components,app \\
-                                -Dsonar.exclusions=node_modules/**,dist/**,.next/**,out/**,coverage/** \\
-                                -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+                                -Dsonar.exclusions=node_modules/**,dist/**,.next/**,out/**,coverage/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx \\
+                                -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \\
+                                -Dsonar.testExecutionReportPaths=test-results.xml \\
+                                -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx
 
                             echo "✅ SAST analysis completed"
                         """
@@ -92,10 +125,10 @@ pipeline {
                     sh """
                         # Build the Next.js application
                         npm run build
-                        
+
                         # Verify build output
                         ls -la .next/ || ls -la out/
-                        
+
                         echo "✅ Next.js build completed successfully"
                     """
                 }
@@ -180,11 +213,10 @@ EOF
                         oc project ${NAMESPACE}
 
                         # Apply the YAML files from the openshift folder in the repo
-                        oc apply -f openshift/configmap.yaml || echo "No configmap found"
-                        oc apply -f openshift/secrets.yaml || echo "No secrets found"
                         oc apply -f openshift/service.yaml
+                        oc apply -f openshift/route.yaml
+                        oc apply -f openshift/hpa.yaml
                         oc apply -f openshift/deployment.yaml
-                        oc apply -f openshift/route.yaml || echo "No route found"
 
                         echo "✅ OpenShift resources applied successfully"
                     """
@@ -241,26 +273,26 @@ EOF
                     echo "Performing health check on deployed application..."
                     sh """
                         oc project ${NAMESPACE}
-                        
+
                         # Wait a bit for the application to fully start
                         sleep 30
-                        
+
                         # Check if pods are ready
                         oc get pods -l app=${APP_NAME} -n ${NAMESPACE}
-                        
+
                         # Port forward and test if route doesn't exist
                         if ! oc get route ${APP_NAME} -n ${NAMESPACE} &>/dev/null; then
                             echo "Testing application via port-forward..."
                             timeout 10s oc port-forward svc/${APP_NAME} 3000:3000 -n ${NAMESPACE} &
                             sleep 5
-                            curl -f http://localhost:3000 || echo "Health check via port-forward failed"
+                            curl -f http://localhost:3000/api/health || echo "Health check via port-forward failed"
                             pkill -f "oc port-forward" || true
                         else
                             echo "Testing application via route..."
                             ROUTE_URL=\$(oc get route ${APP_NAME} -o jsonpath='{.spec.host}' -n ${NAMESPACE})
-                            curl -f "http://\${ROUTE_URL}" || curl -f "https://\${ROUTE_URL}" || echo "Health check via route failed"
+                            curl -f "http://\${ROUTE_URL}/api/health" || curl -f "https://\${ROUTE_URL}/api/health" || echo "Health check via route failed"
                         fi
-                        
+
                         echo "✅ Health check completed"
                     """
                 }
@@ -295,13 +327,19 @@ EOF
                 sh """
                     echo "=== Recent Build Logs ==="
                     oc logs -l build=${APP_NAME} --tail=50 -n ${NAMESPACE} || true
-                    
+
                     echo "=== Recent Pod Logs ==="
                     oc logs -l app=${APP_NAME} --tail=50 -n ${NAMESPACE} || true
                 """
             }
         }
         always {
+            // Publish test results and coverage
+            script {
+                if (fileExists('coverage/lcov.info')) {
+                    echo "📊 Coverage report available in artifacts"
+                }
+            }
             // Clean up workspace
             cleanWs()
         }
