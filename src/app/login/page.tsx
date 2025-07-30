@@ -49,7 +49,7 @@ export default function LoginPage() {
         try {
             await login(values.identifier, values.password);
         } catch (error) {
-            // Error is handled in the auth context
+            console.error(error);
         } finally {
             setIsLoading(false);
         }
