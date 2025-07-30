@@ -1,0 +1,1 @@
+export const API_BASE_URL = 'https://kong-proxy-one-gate-payment.apps.ocp-one-gate-payment.skynux.fun';
