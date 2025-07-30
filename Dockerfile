@@ -1,43 +1,56 @@
-# Stage 1: Builder
-FROM node:20-alpine AS builder
-
+FROM node:22-alpine AS deps
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-# ===== Tambahkan build args untuk env =====
-ARG JWT_SECRET
-ARG NEXT_PUBLIC_APP_URL
+COPY package.json package-lock.json* ./
 
-# ===== Tambahkan ke ENV saat build (khusus Next.js saat build-time) =====
-ENV JWT_SECRET=$JWT_SECRET
-ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+RUN \
+  if [ -f package-lock.json ]; then npm ci --only=production; \
+  else echo "package-lock.json not found." && exit 1; \
+  fi
 
-# ==========================================
+FROM node:22-alpine AS builder
+RUN apk add --no-cache libc6-compat
+WORKDIR /app
 
-COPY package*.json ./
-COPY tsconfig.json ./
-COPY next.config.ts ./
+COPY package.json package-lock.json* ./
+RUN \
+  if [ -f package-lock.json ]; then npm ci; \
+  else echo "package-lock.json not found." && exit 1; \
+  fi
+
 COPY . .
 
-RUN npm install
+ENV NEXT_TELEMETRY_DISABLED=1
+
 RUN npm run build
 
-# Stage 2: Final image
-FROM node:20-alpine AS runner
-
+FROM node:22-alpine AS runner
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
+
 ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=deps /app/node_modules ./node_modules
 
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/next.config.ts ./
-COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
+COPY --from=builder /app/package.json ./
 
-# ====== Tambahkan ENV juga di image final (opsional) =====
-ENV JWT_SECRET=$JWT_SECRET
-ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+RUN chown -R nextjs:nodejs /app
+
+USER nextjs
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
+ENTRYPOINT ["npm", "start"]

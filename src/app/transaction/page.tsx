@@ -103,6 +103,7 @@ export default function TransactionPage() {
             router.push('/transaction/success');
         } catch (error) {
             // Error handling is done in the auth context
+            console.error(error);
         } finally {
             setIsProcessing(false);
         }
