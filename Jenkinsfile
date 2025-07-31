@@ -240,9 +240,6 @@ EOF
                         # Restart the deployment to ensure new image is pulled
                         oc rollout restart deployment/${APP_NAME} -n ${NAMESPACE}
 
-                        # Wait for rollout to complete
-                        oc rollout status deployment/${APP_NAME} -n ${NAMESPACE} --timeout=600s | cat
-
                         # Show deployment status
                         oc get pods -l app=${APP_NAME} -n ${NAMESPACE}
 
