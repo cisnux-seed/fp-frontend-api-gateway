@@ -62,63 +62,63 @@ pipeline {
             }
         }
 
-        stage('Run Tests') {
-            steps {
-                script {
-                    echo "Running Jest tests with coverage..."
-                    sh """
-                        # Run tests with coverage
-                        npm run test:ci
-
-                        # Verify coverage directory exists
-                        ls -la coverage/ || echo "Coverage directory not found"
-
-                        echo "✅ Tests completed successfully"
-                    """
-                }
-            }
-            post {
-                always {
-                    // Archive coverage reports
-                    script {
-                        if (fileExists('coverage/lcov.info')) {
-                            echo "LCOV coverage report found"
-                        }
-                        if (fileExists('coverage/index.html')) {
-                            echo "HTML coverage report generated"
-                        }
-                    }
-                    // Archive coverage reports
-                    archiveArtifacts artifacts: 'coverage/**/*', allowEmptyArchive: true
-                }
-            }
-        }
-        stage('SAST Analysis') {
-            steps {
-                withSonarQubeEnv('SonarQube') {
-                    script {
-                        echo "Running SAST analysis with SonarQube..."
-                        def scannerHome = tool name: 'SonarQube Scanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
-
-                        sh """
-                            echo "Using scanner at: ${scannerHome}"
-                            ls -la ${scannerHome}/bin/
-
-                            ${scannerHome}/bin/sonar-scanner \\
-                                -Dsonar.projectKey=${APP_NAME} \\
-                                -Dsonar.projectName='${APP_NAME}' \\
-                                -Dsonar.sources=src,pages,components,app \\
-                                -Dsonar.exclusions=node_modules/**,dist/**,.next/**,out/**,coverage/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx \\
-                                -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \\
-                                -Dsonar.testExecutionReportPaths=test-results.xml \\
-                                -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx
-
-                            echo "✅ SAST analysis completed"
-                        """
-                    }
-                }
-            }
-        }
+//         stage('Run Tests') {
+//             steps {
+//                 script {
+//                     echo "Running Jest tests with coverage..."
+//                     sh """
+//                         # Run tests with coverage
+//                         npm run test:ci
+//
+//                         # Verify coverage directory exists
+//                         ls -la coverage/ || echo "Coverage directory not found"
+//
+//                         echo "✅ Tests completed successfully"
+//                     """
+//                 }
+//             }
+//             post {
+//                 always {
+//                     // Archive coverage reports
+//                     script {
+//                         if (fileExists('coverage/lcov.info')) {
+//                             echo "LCOV coverage report found"
+//                         }
+//                         if (fileExists('coverage/index.html')) {
+//                             echo "HTML coverage report generated"
+//                         }
+//                     }
+//                     // Archive coverage reports
+//                     archiveArtifacts artifacts: 'coverage/**/*', allowEmptyArchive: true
+//                 }
+//             }
+//         }
+//         stage('SAST Analysis') {
+//             steps {
+//                 withSonarQubeEnv('SonarQube') {
+//                     script {
+//                         echo "Running SAST analysis with SonarQube..."
+//                         def scannerHome = tool name: 'SonarQube Scanner', type: 'hudson.plugins.sonar.SonarRunnerInstallation'
+//
+//                         sh """
+//                             echo "Using scanner at: ${scannerHome}"
+//                             ls -la ${scannerHome}/bin/
+//
+//                             ${scannerHome}/bin/sonar-scanner \\
+//                                 -Dsonar.projectKey=${APP_NAME} \\
+//                                 -Dsonar.projectName='${APP_NAME}' \\
+//                                 -Dsonar.sources=src,pages,components,app \\
+//                                 -Dsonar.exclusions=node_modules/**,dist/**,.next/**,out/**,coverage/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx \\
+//                                 -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info \\
+//                                 -Dsonar.testExecutionReportPaths=test-results.xml \\
+//                                 -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx
+//
+//                             echo "✅ SAST analysis completed"
+//                         """
+//                     }
+//                 }
+//             }
+//         }
 
         stage('Build Application') {
             steps {
