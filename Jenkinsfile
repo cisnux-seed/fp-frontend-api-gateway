@@ -274,13 +274,8 @@ EOF
             echo ""
             script {
                 sh """
-                    if oc get route ${APP_NAME} -n ${NAMESPACE} &>/dev/null; then
-                        echo "Application accessible at:"
-                        echo "  https://\$(oc get route ${APP_NAME} -o jsonpath='{.spec.host}' -n ${NAMESPACE})"
-                    else
-                        echo "To access the service via port-forward:"
-                        echo "oc port-forward svc/${APP_NAME} 3000:3000 -n ${NAMESPACE}"
-                    fi
+                    echo "To access the service via port-forward:"
+                    echo "oc port-forward svc/${APP_NAME} 3000:3000 -n ${NAMESPACE}"
                 """
             }
         }
