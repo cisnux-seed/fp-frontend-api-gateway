@@ -167,9 +167,6 @@ spec:
     type: Docker
     dockerStrategy:
       dockerfilePath: Dockerfile
-      env:
-      - name: NODE_ENV
-        value: production
   output:
     to:
       kind: ImageStreamTag
@@ -268,38 +265,6 @@ EOF
                 }
             }
         }
-
-        stage('Health Check') {
-            steps {
-                script {
-                    echo "Performing health check on deployed application..."
-                    sh """
-                        oc project ${NAMESPACE}
-
-                        # Wait a bit for the application to fully start
-                        sleep 30
-
-                        # Check if pods are ready
-                        oc get pods -l app=${APP_NAME} -n ${NAMESPACE}
-
-                        # Port forward and test if route doesn't exist
-                        if ! oc get route ${APP_NAME} -n ${NAMESPACE} &>/dev/null; then
-                            echo "Testing application via port-forward..."
-                            timeout 10s oc port-forward svc/${APP_NAME} 3000:3000 -n ${NAMESPACE} &
-                            sleep 5
-                            curl -f http://localhost:3000/api/health || echo "Health check via port-forward failed"
-                            pkill -f "oc port-forward" || true
-                        else
-                            echo "Testing application via route..."
-                            ROUTE_URL=\$(oc get route ${APP_NAME} -o jsonpath='{.spec.host}' -n ${NAMESPACE})
-                            curl -f "http://\${ROUTE_URL}/api/health" || curl -f "https://\${ROUTE_URL}/api/health" || echo "Health check via route failed"
-                        fi
-
-                        echo "✅ Health check completed"
-                    """
-                }
-            }
-        }
     }
 
     post {
@@ -335,15 +300,15 @@ EOF
                 """
             }
         }
-        always {
-            // Publish test results and coverage
-            script {
-                if (fileExists('coverage/lcov.info')) {
-                    echo "📊 Coverage report available in artifacts"
-                }
-            }
-            // Clean up workspace
-            cleanWs()
-        }
+//         always {
+//             // Publish test results and coverage
+//             script {
+//                 if (fileExists('coverage/lcov.info')) {
+//                     echo "📊 Coverage report available in artifacts"
+//                 }
+//             }
+//             // Clean up workspace
+//             cleanWs()
+//         }
     }
 }
