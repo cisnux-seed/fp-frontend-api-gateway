@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    tools {
+        nodejs 'NodeJS 24.4.1'
+    }
+
     environment {
         REGISTRY = 'image-registry.openshift-image-registry.svc:5000'
         NAMESPACE = 'one-gate-payment'
@@ -9,8 +13,6 @@ pipeline {
         SEMANTIC_VERSION = '1.0.0'
         // SonarQube configuration
         SONARQUBE_URL = 'https://sonarqube.apps.ocp-one-gate-payment.skynux.fun'
-        // Node.js version
-        NODE_VERSION = '22'
     }
 
     stages {
