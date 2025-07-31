@@ -8,7 +8,7 @@ pipeline {
     environment {
         REGISTRY = 'image-registry.openshift-image-registry.svc:5000'
         NAMESPACE = 'one-gate-payment'
-        APP_NAME = 'nextjs-app'
+        APP_NAME = 'frontend-service'
         // Update this version when you want to release a new version
         SEMANTIC_VERSION = '1.0.0'
         // SonarQube configuration
@@ -159,7 +159,7 @@ spec:
   source:
     type: Git
     git:
-      uri: git@github.com:your-org/${APP_NAME}.git
+      uri: git@github.com:cisnux-seed/fp-frontend-api-gateway.git
       ref: main
     sourceSecret:
       name: github-ssh-keys
