@@ -243,18 +243,6 @@ EOF
                         # Show deployment status
                         oc get pods -l app=${APP_NAME} -n ${NAMESPACE}
 
-                        # Show the image being used
-                        echo "Current deployment image:"
-                        oc get deployment ${APP_NAME} -o jsonpath='{.spec.template.spec.containers[0].image}' -n ${NAMESPACE}
-                        echo ""
-
-                        # Check if route exists and show URL
-                        if oc get route ${APP_NAME} -n ${NAMESPACE} &>/dev/null; then
-                            echo "Application URL:"
-                            oc get route ${APP_NAME} -o jsonpath='{.spec.host}' -n ${NAMESPACE}
-                            echo ""
-                        fi
-
                         echo "✅ Deployed with tags: latest and ${SEMANTIC_VERSION}"
                         echo "Images available in registry:"
                         oc get imagestream ${APP_NAME} -o jsonpath='{.status.tags[*].tag}' | tr ' ' '\\n'
