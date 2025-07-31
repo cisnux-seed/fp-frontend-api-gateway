@@ -10,7 +10,7 @@ spec:
     kind: Service
     name: frontend-service
   port:
-    targetPort: proxy
+    targetPort: 3000
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
