@@ -1,246 +1,481 @@
-// src/__tests__/components/ui/form.test.tsx
+// src/__tests__/context/AuthContext.test.tsx
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import { render, screen, waitFor, act } from '@testing-library/react';
+import { useRouter } from 'next/navigation';
 import '@testing-library/jest-dom';
-import {
-    Form,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormControl,
-    FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
+// Mock the toast hook from the correct location
+jest.mock('@/hooks/use-toast');
 
-// Test form schema
-const testSchema = z.object({
-    username: z.string().min(2, 'Username must be at least 2 characters'),
-    email: z.string().email('Invalid email address'),
-});
+// Mock the hooks
+jest.mock('next/navigation');
+jest.mock('@/hooks/use-toast');
 
-type TestFormData = z.infer<typeof testSchema>;
+const mockPush = jest.fn();
+const mockReplace = jest.fn();
+const mockToast = jest.fn();
 
-// Test component with proper error rendering
-const TestFormComponent = () => {
-    const {
-        register,
-        handleSubmit,
-        formState: { errors }
-    } = useForm<TestFormData>({
-        mode: 'onSubmit',
-        resolver: zodResolver(testSchema), // Use Zod resolver for validation
-        defaultValues: {
-            username: '',
-            email: ''
-        }
+beforeEach(() => {
+    jest.clearAllMocks();
+
+    (useRouter as jest.Mock).mockReturnValue({
+        push: mockPush,
+        replace: mockReplace,
     });
 
-    const onSubmit = async (data: TestFormData) => {
-        console.log('Form submitted:', data);
-    };
+    const mockUseToast = require('@/hooks/use-toast').useToast;
+    mockUseToast.mockReturnValue({
+        toast: mockToast,
+    });
+
+    global.fetch = jest.fn();
+});
+
+// Test component to access the context
+const TestComponent = () => {
+    const auth = useAuth();
 
     return (
-        <form data-testid="test-form" onSubmit={handleSubmit(onSubmit)}>
-            <div className="space-y-2">
-                <label htmlFor="username">Username</label>
-                <input
-                    id="username"
-                    {...register('username')}
-                    placeholder="Enter username"
-                    aria-invalid={errors.username ? 'true' : 'false'}
-                />
-                {errors.username && (
-                    <span data-testid="username-error" role="alert">
-                        {errors.username.message}
-                    </span>
-                )}
-            </div>
-
-            <div className="space-y-2">
-                <label htmlFor="email">Email</label>
-                <input
-                    id="email"
-                    {...register('email')}
-                    type="email"
-                    placeholder="Enter email"
-                    aria-invalid={errors.email ? 'true' : 'false'}
-                />
-                {errors.email && (
-                    <span data-testid="email-error" role="alert">
-                        {errors.email.message}
-                    </span>
-                )}
-            </div>
-
-            <button type="submit">Submit</button>
-        </form>
+        <div>
+            <div data-testid="loading">{auth.isLoading.toString()}</div>
+            <div data-testid="authenticated">{auth.isAuthenticated.toString()}</div>
+            <div data-testid="user">{auth.user?.username || 'null'}</div>
+            <div data-testid="balance">{auth.balance?.balance || 'null'}</div>
+            <button onClick={() => auth.login('testuser', 'password')}>Login</button>
+            <button onClick={() => auth.logout()}>Logout</button>
+            <button onClick={() => auth.fetchBalance()}>Fetch Balance</button>
+        </div>
     );
 };
 
-describe('Form Components', () => {
-    // Suppress console.log for cleaner test output
-    beforeEach(() => {
-        jest.spyOn(console, 'log').mockImplementation(() => {});
+describe('AuthContext', () => {
+    it('provides initial state correctly', () => {
+        render(
+            <AuthProvider>
+                <TestComponent />
+            </AuthProvider>
+        );
+
+        expect(screen.getByTestId('loading')).toHaveTextContent('true');
+        expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
+        expect(screen.getByTestId('user')).toHaveTextContent('null');
+        expect(screen.getByTestId('balance')).toHaveTextContent('null');
     });
 
-    afterEach(() => {
-        jest.restoreAllMocks();
+    it('throws error when useAuth is used outside AuthProvider', () => {
+        const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+        expect(() => {
+            render(<TestComponent />);
+        }).toThrow('useAuth must be used within AuthProvider');
+
+        consoleSpy.mockRestore();
     });
 
-    it('renders form fields correctly', async () => {
-        render(<TestFormComponent />);
+    it('handles successful login', async () => {
+        const mockFetch = global.fetch as jest.Mock;
 
-        // Wait for form to be ready
-        await waitFor(() => {
-            expect(screen.getByLabelText('Username')).toBeInTheDocument();
+        // Mock successful login response
+        mockFetch
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    message: 'Login successful',
+                    user: { username: 'testuser' }
+                })
+            })
+            // Mock successful balance fetch
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    data: { balance: 100000, currency: 'IDR' }
+                })
+            });
+
+        render(
+            <AuthProvider>
+                <TestComponent />
+            </AuthProvider>
+        );
+
+        const loginButton = screen.getByText('Login');
+
+        await act(async () => {
+            loginButton.click();
         });
 
-        expect(screen.getByLabelText('Email')).toBeInTheDocument();
-        expect(screen.getByPlaceholderText('Enter username')).toBeInTheDocument();
-        expect(screen.getByPlaceholderText('Enter email')).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: 'Submit' })).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByTestId('authenticated')).toHaveTextContent('true');
+        });
+
+        expect(screen.getByTestId('user')).toHaveTextContent('testuser');
+        expect(screen.getByTestId('balance')).toHaveTextContent('100000');
+        expect(mockToast).toHaveBeenCalledWith({
+            title: 'Login Successful',
+            description: 'Welcome back, testuser!',
+        });
+        expect(mockPush).toHaveBeenCalledWith('/transaction');
     });
 
-    it('submits form successfully with valid data', async () => {
-        const user = userEvent.setup();
-        const consoleSpy = jest.spyOn(console, 'log');
+    it('handles login failure', async () => {
+        const mockFetch = global.fetch as jest.Mock;
 
-        render(<TestFormComponent />);
+        mockFetch.mockResolvedValueOnce({
+            ok: false,
+            status: 401,
+            json: async () => ({
+                message: 'Invalid credentials'
+            })
+        });
 
-        const usernameInput = await screen.findByPlaceholderText('Enter username');
-        const emailInput = screen.getByPlaceholderText('Enter email');
-        const submitButton = screen.getByRole('button', { name: 'Submit' });
+        render(
+            <AuthProvider>
+                <TestComponent />
+            </AuthProvider>
+        );
 
-        // Enter valid data
-        await user.type(usernameInput, 'validuser');
-        await user.type(emailInput, 'valid@email.com');
+        const loginButton = screen.getByText('Login');
 
-        // Submit form
-        await user.click(submitButton);
+        await act(async () => {
+            loginButton.click();
+        });
 
-        // Wait for successful submission
         await waitFor(() => {
-            expect(consoleSpy).toHaveBeenCalledWith('Form submitted:', {
-                username: 'validuser',
-                email: 'valid@email.com',
+            expect(mockToast).toHaveBeenCalledWith({
+                variant: 'destructive',
+                title: 'Login Failed',
+                description: 'Invalid credentials',
             });
         });
 
-        // Should not show error messages
-        expect(screen.queryByTestId('username-error')).not.toBeInTheDocument();
-        expect(screen.queryByTestId('email-error')).not.toBeInTheDocument();
-
-        // Aria-invalid should be false for valid inputs
-        expect(usernameInput).toHaveAttribute('aria-invalid', 'false');
-        expect(emailInput).toHaveAttribute('aria-invalid', 'false');
+        expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
     });
 
-    it('clears validation errors when input becomes valid', async () => {
-        const user = userEvent.setup();
-        render(<TestFormComponent />);
+    it('handles logout', async () => {
+        const mockFetch = global.fetch as jest.Mock;
 
-        const usernameInput = await screen.findByPlaceholderText('Enter username');
-        const submitButton = screen.getByRole('button', { name: 'Submit' });
+        // Mock logout response
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({ message: 'Logged out successfully' })
+        });
 
-        // First trigger validation error
-        await user.type(usernameInput, 'a');
-        await user.click(submitButton);
+        render(
+            <AuthProvider>
+                <TestComponent />
+            </AuthProvider>
+        );
 
-        // Wait for error to appear
-        const usernameError = await screen.findByTestId('username-error');
-        expect(usernameError).toBeInTheDocument();
+        const logoutButton = screen.getByText('Logout');
 
-        // Fix the input
-        await user.clear(usernameInput);
-        await user.type(usernameInput, 'validuser');
-        await user.click(submitButton);
+        await act(async () => {
+            logoutButton.click();
+        });
 
-        // Wait for error to disappear
         await waitFor(() => {
-            expect(screen.queryByTestId('username-error')).not.toBeInTheDocument();
+            expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
+        });
+
+        expect(screen.getByTestId('user')).toHaveTextContent('null');
+        expect(screen.getByTestId('balance')).toHaveTextContent('null');
+        expect(mockPush).toHaveBeenCalledWith('/login');
+    });
+
+    it('handles fetch balance success', async () => {
+        const mockFetch = global.fetch as jest.Mock;
+
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                data: { balance: 50000, currency: 'IDR' }
+            })
+        });
+
+        render(
+            <AuthProvider>
+                <TestComponent />
+            </AuthProvider>
+        );
+
+        const fetchBalanceButton = screen.getByText('Fetch Balance');
+
+        await act(async () => {
+            fetchBalanceButton.click();
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('balance')).toHaveTextContent('50000');
         });
     });
 
-    it('integrates with react-hook-form correctly', async () => {
-        const user = userEvent.setup();
+    it('handles fetch balance failure', async () => {
+        const mockFetch = global.fetch as jest.Mock;
 
-        // Test that the form actually uses react-hook-form
-        const TestIntegration = () => {
-            const form = useForm<TestFormData>({
-                resolver: zodResolver(testSchema),
-                defaultValues: { username: '', email: '' },
+        mockFetch.mockResolvedValueOnce({
+            ok: false,
+            status: 500,
+            json: async () => ({
+                message: 'Server error'
+            })
+        });
+
+        render(
+            <AuthProvider>
+                <TestComponent />
+            </AuthProvider>
+        );
+
+        const fetchBalanceButton = screen.getByText('Fetch Balance');
+
+        await act(async () => {
+            fetchBalanceButton.click();
+        });
+
+        await waitFor(() => {
+            expect(mockToast).toHaveBeenCalledWith({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Failed to fetch balance',
+            });
+        });
+    });
+
+    it('handles token refresh on 401 error', async () => {
+        const mockFetch = global.fetch as jest.Mock;
+
+        // First call returns 401, second call (refresh) succeeds, third call (retry) succeeds
+        mockFetch
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 401,
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({ message: 'Token refreshed' })
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    data: { balance: 75000, currency: 'IDR' }
+                })
             });
 
-            return (
-                <div>
-                    <Form {...form}>
-                        <form data-testid="integration-form">
-                            <FormField
-                                control={form.control}
-                                name="username"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormControl>
-                                            <Input placeholder="Username" {...field} />
-                                        </FormControl>
-                                    </FormItem>
-                                )}
-                            />
-                        </form>
-                    </Form>
-                    <div data-testid="form-state">
-                        {JSON.stringify({
-                            isValid: form.formState.isValid,
-                            isDirty: form.formState.isDirty,
-                        })}
-                    </div>
-                </div>
-            );
+        render(
+            <AuthProvider>
+                <TestComponent />
+            </AuthProvider>
+        );
+
+        const fetchBalanceButton = screen.getByText('Fetch Balance');
+
+        await act(async () => {
+            fetchBalanceButton.click();
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('balance')).toHaveTextContent('75000');
+        });
+
+        // Should have called fetch 3 times: original request, refresh, retry
+        expect(mockFetch).toHaveBeenCalledTimes(3);
+    });
+
+    it('handles failed token refresh', async () => {
+        const mockFetch = global.fetch as jest.Mock;
+
+        // First call returns 401, refresh call fails
+        mockFetch
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 401,
+            })
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 401,
+            });
+
+        render(
+            <AuthProvider>
+                <TestComponent />
+            </AuthProvider>
+        );
+
+        const fetchBalanceButton = screen.getByText('Fetch Balance');
+
+        await act(async () => {
+            fetchBalanceButton.click();
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
+        });
+
+        expect(mockPush).toHaveBeenCalledWith('/login');
+    });
+
+    it('loads authentication state on mount when balance fetch succeeds', async () => {
+        const mockFetch = global.fetch as jest.Mock;
+
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            json: async () => ({
+                data: { balance: 25000, currency: 'IDR' }
+            })
+        });
+
+        render(
+            <AuthProvider>
+                <TestComponent />
+            </AuthProvider>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('loading')).toHaveTextContent('false');
+        });
+
+        expect(screen.getByTestId('authenticated')).toHaveTextContent('true');
+        expect(screen.getByTestId('user')).toHaveTextContent('User');
+        expect(screen.getByTestId('balance')).toHaveTextContent('25000');
+    });
+
+    it('handles authentication check failure on mount', async () => {
+        const mockFetch = global.fetch as jest.Mock;
+
+        mockFetch.mockResolvedValueOnce({
+            ok: false,
+            status: 401,
+        });
+
+        render(
+            <AuthProvider>
+                <TestComponent />
+            </AuthProvider>
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId('loading')).toHaveTextContent('false');
+        });
+
+        expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
+    });
+});
+
+// Test the topUp functionality separately
+describe('AuthContext - TopUp', () => {
+    const TestTopUpComponent = () => {
+        const auth = useAuth();
+
+        const handleTopUp = async () => {
+            try {
+                await auth.topUp({
+                    amount: 10000,
+                    paymentMethod: 'GOPAY',
+                    phoneNumber: '08123456789',
+                    description: 'Test top up'
+                });
+            } catch (error) {
+                // Error handling is done in context
+            }
         };
 
-        render(<TestIntegration />);
+        return (
+            <div>
+                <div data-testid="balance">{auth.balance?.balance || 'null'}</div>
+                <button onClick={handleTopUp}>Top Up</button>
+            </div>
+        );
+    };
 
-        // Wait for form to be ready
-        const usernameInput = await screen.findByPlaceholderText('Username');
+    beforeEach(() => {
+        jest.clearAllMocks();
 
-        // Initially should be invalid (empty required fields) and not dirty
-        await waitFor(() => {
-            expect(screen.getByTestId('form-state')).toHaveTextContent(
-                JSON.stringify({ isValid: false, isDirty: false })
-            );
+        (useRouter as jest.Mock).mockReturnValue({
+            push: mockPush,
+            replace: mockReplace,
         });
 
-        // Type something to make it dirty
-        await user.type(usernameInput, 'test');
-
-        // Should now be dirty and potentially valid depending on the input
-        await waitFor(() => {
-            const formState = screen.getByTestId('form-state');
-            expect(formState.textContent).toContain('"isDirty":true');
+        const { useToast } = require('@/hooks/use-toast');
+        (useToast as jest.Mock).mockReturnValue({
+            toast: mockToast,
         });
+
+        global.fetch = jest.fn();
     });
 
-    it('applies proper accessibility attributes', async () => {
-        render(<TestFormComponent />);
+    it('handles successful top up', async () => {
+        const mockFetch = global.fetch as jest.Mock;
 
-        // Wait for form to be ready
-        const usernameInput = await screen.findByPlaceholderText('Enter username');
-        const emailInput = screen.getByPlaceholderText('Enter email');
+        mockFetch
+            // Top up request
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    data: {
+                        id: 'tx-123',
+                        amount: 10000,
+                        transactionStatus: 'SUCCESS'
+                    }
+                })
+            })
+            // Balance fetch after top up
+            .mockResolvedValueOnce({
+                ok: true,
+                json: async () => ({
+                    data: { balance: 35000, currency: 'IDR' }
+                })
+            });
 
-        // Should have proper labels
-        expect(usernameInput).toHaveAccessibleName('Username');
-        expect(emailInput).toHaveAccessibleName('Email');
+        render(
+            <AuthProvider>
+                <TestTopUpComponent />
+            </AuthProvider>
+        );
 
-        // Should have proper types
-        expect(emailInput).toHaveAttribute('type', 'email');
+        const topUpButton = screen.getByText('Top Up');
 
-        // Should have proper initial aria-invalid
-        expect(usernameInput).toHaveAttribute('aria-invalid', 'false');
-        expect(emailInput).toHaveAttribute('aria-invalid', 'false');
+        await act(async () => {
+            topUpButton.click();
+        });
+
+        await waitFor(() => {
+            expect(mockToast).toHaveBeenCalledWith({
+                title: 'Top-up Successful',
+                description: 'Successfully topped up 10,000 IDR',
+            });
+        });
+
+        expect(screen.getByTestId('balance')).toHaveTextContent('35000');
+    });
+
+    it('handles top up failure', async () => {
+        const mockFetch = global.fetch as jest.Mock;
+
+        mockFetch.mockResolvedValueOnce({
+            ok: false,
+            status: 400,
+            json: async () => ({
+                message: 'Insufficient funds'
+            })
+        });
+
+        render(
+            <AuthProvider>
+                <TestTopUpComponent />
+            </AuthProvider>
+        );
+
+        const topUpButton = screen.getByText('Top Up');
+
+        await act(async () => {
+            topUpButton.click();
+        });
+
+        await waitFor(() => {
+            expect(mockToast).toHaveBeenCalledWith({
+                variant: 'destructive',
+                title: 'Top-up Failed',
+                description: 'Insufficient funds',
+            });
+        });
     });
 });

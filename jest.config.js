@@ -1,3 +1,4 @@
+// jest.config.js - CORRECTED VERSION
 const nextJest = require('next/jest')
 
 const createJestConfig = nextJest({
@@ -7,9 +8,12 @@ const createJestConfig = nextJest({
 const customJestConfig = {
     setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
     testEnvironment: 'jest-environment-jsdom',
-    moduleNameMapping: {
+
+    // ✅ FIXED: Changed from "moduleNameMapping" to "moduleNameMapper"
+    moduleNameMapper: {
         '^@/(.*)$': '<rootDir>/src/$1',
     },
+
     collectCoverageFrom: [
         'src/**/*.{js,jsx,ts,tsx}',
         '!src/**/*.d.ts',
