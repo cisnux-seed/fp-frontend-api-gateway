@@ -21,43 +21,52 @@ jest.mock('next/navigation', () => ({
 jest.mock('next/image', () => ({
     __esModule: true,
     default: (props) => {
+        const { priority, ...otherProps } = props;
         // eslint-disable-next-line @next/next/no-img-element
-        return <img {...props} />
+        return <img {...otherProps} />
     },
 }))
 
-// Suppress console warnings during tests
-const originalError = console.error
-beforeAll(() => {
-    console.error = (...args) => {
-        if (
-            typeof args[0] === 'string' &&
-            args[0].includes('Warning: ReactDOM.render is no longer supported')
-        ) {
-            return
-        }
-        originalError.call(console, ...args)
-    }
-})
-
-afterAll(() => {
-    console.error = originalError
-})
+// ✅ FIXED: Mock use-toast hook properly
+jest.mock('@/hooks/use-toast', () => ({
+    useToast: () => ({
+        toast: jest.fn(),
+        dismiss: jest.fn(),
+        toasts: [],
+    }),
+}))
 
 // Mock fetch globally
 global.fetch = jest.fn()
 
-// Mock window.matchMedia
+// Mock other browser APIs
 Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: jest.fn().mockImplementation(query => ({
         matches: false,
         media: query,
         onchange: null,
-        addListener: jest.fn(), // deprecated
-        removeListener: jest.fn(), // deprecated
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
         addEventListener: jest.fn(),
         removeEventListener: jest.fn(),
         dispatchEvent: jest.fn(),
     })),
+})
+
+global.ResizeObserver = jest.fn().mockImplementation(() => ({
+    observe: jest.fn(),
+    unobserve: jest.fn(),
+    disconnect: jest.fn(),
+}))
+
+global.IntersectionObserver = jest.fn().mockImplementation(() => ({
+    observe: jest.fn(),
+    disconnect: jest.fn(),
+    unobserve: jest.fn(),
+}))
+
+// Cleanup after each test
+afterEach(() => {
+    jest.clearAllMocks()
 })
