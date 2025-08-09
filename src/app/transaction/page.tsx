@@ -253,6 +253,8 @@ export default function TransactionPage() {
                                     id="customAmount"
                                     type="number"
                                     placeholder="Example: 20000"
+                                    min="10000"
+                                    step="any"
                                     {...form.register('customAmount')}
                                     className="text-base"
                                 />
