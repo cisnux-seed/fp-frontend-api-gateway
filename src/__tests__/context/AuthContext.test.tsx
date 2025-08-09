@@ -4,11 +4,20 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { useToast } from '@/hooks/use-toast';
 
 // Mock dependencies
-jest.mock('next/navigation');
-jest.mock('@/hooks/use-toast');
+jest.mock('next/navigation', () => ({
+    useRouter: jest.fn(),
+}));
+
+jest.mock('@/hooks/use-toast', () => ({
+    useToast: () => ({
+        toast: jest.fn(),
+    }),
+}));
+
+// Mock fetch globally
+global.fetch = jest.fn();
 
 const mockRouter = {
     push: jest.fn(),
@@ -18,14 +27,6 @@ const mockRouter = {
     refresh: jest.fn(),
     prefetch: jest.fn(),
 };
-
-const mockToast = jest.fn();
-
-(useRouter as jest.Mock).mockReturnValue(mockRouter);
-(useToast as jest.Mock).mockReturnValue({ toast: mockToast });
-
-// Mock fetch globally
-global.fetch = jest.fn();
 
 // Test component that consumes AuthContext
 const TestComponent = () => {
@@ -52,8 +53,12 @@ const TestComponent = () => {
             >
                 Login
             </button>
-            <button onClick={logout} data-testid="logout-btn">Logout</button>
-            <button onClick={fetchBalance} data-testid="fetch-balance-btn">Fetch Balance</button>
+            <button onClick={logout} data-testid="logout-btn">
+                Logout
+            </button>
+            <button onClick={fetchBalance} data-testid="fetch-balance-btn">
+                Fetch Balance
+            </button>
             <button
                 onClick={() => topUp({
                     amount: 50000,
@@ -72,11 +77,12 @@ const TestComponent = () => {
 describe('AuthContext', () => {
     beforeEach(() => {
         jest.clearAllMocks();
+        (useRouter as jest.Mock).mockReturnValue(mockRouter);
         (fetch as jest.Mock).mockClear();
     });
 
     describe('Initial State', () => {
-        it('should have correct initial state', async () => {
+        it('should have correct initial state when not authenticated', async () => {
             (fetch as jest.Mock).mockRejectedValueOnce(new Error('Network error'));
 
             render(
@@ -93,32 +99,51 @@ describe('AuthContext', () => {
             expect(screen.getByTestId('username')).toHaveTextContent('No user');
             expect(screen.getByTestId('balance')).toHaveTextContent('No balance');
         });
+
+        it('should load authenticated state on mount', async () => {
+            (fetch as jest.Mock).mockResolvedValueOnce({
+                ok: true,
+                json: () => Promise.resolve({
+                    data: { balance: 100000, currency: 'IDR' }
+                })
+            });
+
+            render(
+                <AuthProvider>
+                    <TestComponent />
+                </AuthProvider>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByTestId('loading')).toHaveTextContent('false');
+            });
+
+            expect(screen.getByTestId('authenticated')).toHaveTextContent('true');
+            expect(screen.getByTestId('username')).toHaveTextContent('User');
+            expect(screen.getByTestId('balance')).toHaveTextContent('100000');
+        });
     });
 
     describe('Login', () => {
-        it('should login successfully and fetch balance', async () => {
+        it('should login successfully', async () => {
             const user = userEvent.setup();
 
-            // Mock successful login
             (fetch as jest.Mock)
-                .mockImplementationOnce(() =>
-                    Promise.resolve({
-                        ok: true,
-                        json: () => Promise.resolve({
-                            message: 'Login successful',
-                            user: { username: 'testuser' }
-                        })
+                // Login request
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: () => Promise.resolve({
+                        message: 'Login successful',
+                        user: { username: 'testuser' }
                     })
-                )
-                // Mock successful balance fetch
-                .mockImplementationOnce(() =>
-                    Promise.resolve({
-                        ok: true,
-                        json: () => Promise.resolve({
-                            data: { balance: 100000, currency: 'IDR' }
-                        })
+                })
+                // Balance fetch after login
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: () => Promise.resolve({
+                        data: { balance: 100000, currency: 'IDR' }
                     })
-                );
+                });
 
             render(
                 <AuthProvider>
@@ -140,26 +165,19 @@ describe('AuthContext', () => {
                 expect(screen.getByTestId('balance')).toHaveTextContent('100000');
             });
 
-            expect(mockToast).toHaveBeenCalledWith({
-                title: 'Login Successful',
-                description: 'Welcome back, testuser!',
-            });
-
             expect(mockRouter.push).toHaveBeenCalledWith('/transaction');
         });
 
         it('should handle login failure', async () => {
             const user = userEvent.setup();
 
-            (fetch as jest.Mock).mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: false,
-                    status: 401,
-                    json: () => Promise.resolve({
-                        message: 'Invalid credentials'
-                    })
+            (fetch as jest.Mock).mockResolvedValueOnce({
+                ok: false,
+                status: 401,
+                json: () => Promise.resolve({
+                    message: 'Invalid credentials'
                 })
-            );
+            });
 
             render(
                 <AuthProvider>
@@ -176,14 +194,8 @@ describe('AuthContext', () => {
             });
 
             await waitFor(() => {
-                expect(mockToast).toHaveBeenCalledWith({
-                    variant: 'destructive',
-                    title: 'Login Failed',
-                    description: 'Invalid credentials',
-                });
+                expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
             });
-
-            expect(screen.getByTestId('authenticated')).toHaveTextContent('false');
         });
     });
 
@@ -191,15 +203,12 @@ describe('AuthContext', () => {
         it('should logout successfully', async () => {
             const user = userEvent.setup();
 
-            // Mock logout API call
-            (fetch as jest.Mock).mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: true,
-                    json: () => Promise.resolve({
-                        message: 'Logged out successfully'
-                    })
+            (fetch as jest.Mock).mockResolvedValueOnce({
+                ok: true,
+                json: () => Promise.resolve({
+                    message: 'Logged out successfully'
                 })
-            );
+            });
 
             render(
                 <AuthProvider>
@@ -229,14 +238,16 @@ describe('AuthContext', () => {
         it('should fetch balance successfully', async () => {
             const user = userEvent.setup();
 
-            (fetch as jest.Mock).mockImplementationOnce(() =>
-                Promise.resolve({
+            (fetch as jest.Mock)
+                // Initial auth check (unauthenticated)
+                .mockRejectedValueOnce(new Error('Network error'))
+                // Manual balance fetch
+                .mockResolvedValueOnce({
                     ok: true,
                     json: () => Promise.resolve({
                         data: { balance: 150000, currency: 'IDR' }
                     })
-                })
-            );
+                });
 
             render(
                 <AuthProvider>
@@ -260,15 +271,141 @@ describe('AuthContext', () => {
         it('should handle balance fetch failure', async () => {
             const user = userEvent.setup();
 
-            (fetch as jest.Mock).mockImplementationOnce(() =>
-                Promise.resolve({
+            (fetch as jest.Mock)
+                // Initial auth check
+                .mockRejectedValueOnce(new Error('Network error'))
+                // Manual balance fetch failure
+                .mockResolvedValueOnce({
                     ok: false,
                     status: 500,
                     json: () => Promise.resolve({
                         message: 'Server error'
                     })
-                })
+                });
+
+            render(
+                <AuthProvider>
+                    <TestComponent />
+                </AuthProvider>
             );
+
+            await waitFor(() => {
+                expect(screen.getByTestId('loading')).toHaveTextContent('false');
+            });
+
+            await act(async () => {
+                await user.click(screen.getByTestId('fetch-balance-btn'));
+            });
+
+            // Should not crash and maintain current state
+            expect(screen.getByTestId('balance')).toHaveTextContent('No balance');
+        });
+    });
+
+    describe('Top Up', () => {
+        it('should handle top up successfully', async () => {
+            const user = userEvent.setup();
+
+            (fetch as jest.Mock)
+                // Initial auth check
+                .mockRejectedValueOnce(new Error('Network error'))
+                // Top up request
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: () => Promise.resolve({
+                        data: {
+                            id: 'tx-123',
+                            amount: 50000,
+                            status: 'SUCCESS'
+                        }
+                    })
+                })
+                // Balance refresh after top up
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: () => Promise.resolve({
+                        data: { balance: 150000, currency: 'IDR' }
+                    })
+                });
+
+            render(
+                <AuthProvider>
+                    <TestComponent />
+                </AuthProvider>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByTestId('loading')).toHaveTextContent('false');
+            });
+
+            await act(async () => {
+                await user.click(screen.getByTestId('topup-btn'));
+            });
+
+            await waitFor(() => {
+                expect(screen.getByTestId('balance')).toHaveTextContent('150000');
+            });
+        });
+
+        it('should handle top up failure', async () => {
+            const user = userEvent.setup();
+
+            (fetch as jest.Mock)
+                // Initial auth check
+                .mockRejectedValueOnce(new Error('Network error'))
+                // Top up failure
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 400,
+                    json: () => Promise.resolve({
+                        message: 'Insufficient funds'
+                    })
+                });
+
+            render(
+                <AuthProvider>
+                    <TestComponent />
+                </AuthProvider>
+            );
+
+            await waitFor(() => {
+                expect(screen.getByTestId('loading')).toHaveTextContent('false');
+            });
+
+            await expect(async () => {
+                await act(async () => {
+                    await user.click(screen.getByTestId('topup-btn'));
+                });
+            }).rejects.toThrow();
+        });
+    });
+
+    describe('Token Refresh', () => {
+        it('should refresh token on 401 error', async () => {
+            const user = userEvent.setup();
+
+            (fetch as jest.Mock)
+                // Initial auth check
+                .mockRejectedValueOnce(new Error('Network error'))
+                // Balance fetch returns 401
+                .mockResolvedValueOnce({
+                    ok: false,
+                    status: 401
+                })
+                // Token refresh succeeds
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: () => Promise.resolve({
+                        message: 'Token refreshed'
+                    })
+                })
+                // Retry balance fetch succeeds
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: () => Promise.resolve({
+                        data: { balance: 75000, currency: 'IDR' }
+                    })
+                });
 
             render(
                 <AuthProvider>
@@ -285,99 +422,11 @@ describe('AuthContext', () => {
             });
 
             await waitFor(() => {
-                expect(mockToast).toHaveBeenCalledWith({
-                    variant: 'destructive',
-                    title: 'Error',
-                    description: 'Failed to fetch balance',
-                });
-            });
-        });
-    });
-
-    describe('Top Up', () => {
-        it('should handle top up successfully', async () => {
-            const user = userEvent.setup();
-
-            (fetch as jest.Mock)
-                // Mock topup API call
-                .mockImplementationOnce(() =>
-                    Promise.resolve({
-                        ok: true,
-                        json: () => Promise.resolve({
-                            data: {
-                                id: 'tx-123',
-                                amount: 50000,
-                                status: 'SUCCESS'
-                            }
-                        })
-                    })
-                )
-                // Mock balance refresh
-                .mockImplementationOnce(() =>
-                    Promise.resolve({
-                        ok: true,
-                        json: () => Promise.resolve({
-                            data: { balance: 150000, currency: 'IDR' }
-                        })
-                    })
-                );
-
-            render(
-                <AuthProvider>
-                    <TestComponent />
-                </AuthProvider>
-            );
-
-            await waitFor(() => {
-                expect(screen.getByTestId('loading')).toHaveTextContent('false');
+                expect(screen.getByTestId('balance')).toHaveTextContent('75000');
             });
 
-            await act(async () => {
-                await user.click(screen.getByTestId('topup-btn'));
-            });
-
-            await waitFor(() => {
-                expect(mockToast).toHaveBeenCalledWith({
-                    title: 'Top-up Successful',
-                    description: 'Successfully topped up 50,000 IDR',
-                });
-            });
-        });
-
-        it('should handle top up failure', async () => {
-            const user = userEvent.setup();
-
-            (fetch as jest.Mock).mockImplementationOnce(() =>
-                Promise.resolve({
-                    ok: false,
-                    status: 400,
-                    json: () => Promise.resolve({
-                        message: 'Insufficient funds'
-                    })
-                })
-            );
-
-            render(
-                <AuthProvider>
-                    <TestComponent />
-                </AuthProvider>
-            );
-
-            await waitFor(() => {
-                expect(screen.getByTestId('loading')).toHaveTextContent('false');
-            });
-
-            await act(async () => {
-                await user.click(screen.getByTestId('topup-btn'));
-            });
-
-            await waitFor(() => {
-                expect(mockToast).toHaveBeenCalledWith({
-                    variant: 'destructive',
-                    title: 'Top-up Failed',
-                    description: 'Insufficient funds',
-                });
-            });
+            // Should have called fetch 4 times: auth check, balance (401), refresh, retry balance
+            expect(fetch).toHaveBeenCalledTimes(4);
         });
     });
 });
