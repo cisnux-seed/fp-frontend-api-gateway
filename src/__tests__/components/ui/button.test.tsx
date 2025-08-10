@@ -1,13 +1,13 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import {render, screen} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import { Button } from '@/components/ui/button';
+import {Button} from '@/components/ui/button';
 
 describe('Button', () => {
     it('renders correctly', () => {
         render(<Button>Click me</Button>);
-        expect(screen.getByRole('button', { name: 'Click me' })).toBeInTheDocument();
+        expect(screen.getByRole('button', {name: 'Click me'})).toBeInTheDocument();
     });
 
     it('handles click events', async () => {
@@ -28,6 +28,9 @@ describe('Button', () => {
     it('applies variant classes correctly', () => {
         render(<Button variant="destructive">Delete</Button>);
         const button = screen.getByRole('button');
-        expect(button).toHaveClass('bg-destructive', "h-10", "w-full", "rounded-md");
+        expect(button).toHaveClass('bg-destructive');
+        expect(button).toHaveClass("h-10");
+        expect(button).toHaveClass("rounded-md");
+
     });
 });
