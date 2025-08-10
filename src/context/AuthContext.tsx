@@ -29,31 +29,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { toast } = useToast();
 
     // Helper function to make authenticated requests with auto-refresh
-    const authenticatedFetch = useCallback(async (url: string, options: RequestInit = {}) => {
-        const response = await fetch(url, {
-            ...options,
-            credentials: 'include',
-        });
-
-        // If unauthorized, try to refresh token
-        if (response.status === 401) {
-            const refreshSuccess = await refreshAuth();
-            if (refreshSuccess) {
-                // Retry the original request
-                return fetch(url, {
-                    ...options,
-                    credentials: 'include',
-                });
-            } else {
-                // Refresh failed, logout user
-                await logout();
-                throw new Error('Session expired');
-            }
-        }
-
-        return response;
-    }, []);
-
+// 1️⃣ refreshAuth first
     const refreshAuth = useCallback(async (): Promise<boolean> => {
         try {
             const response = await fetch('/api/auth/refresh', {
@@ -62,13 +38,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 body: JSON.stringify({}),
                 credentials: 'include',
             });
-
             return response.ok;
         } catch (error) {
             console.error('Token refresh failed:', error);
             return false;
         }
     }, []);
+
+// 2️⃣ logout second
+    const logout = useCallback(async () => {
+        try {
+            await fetch('/api/auth/logout', {
+                method: 'DELETE',
+                credentials: 'include',
+            });
+        } catch (error) {
+            console.error('Logout error:', error);
+        } finally {
+            setUser(null);
+            setBalance(null);
+            setIsAuthenticated(false);
+            router.push('/login');
+        }
+    }, [router]);
+
+// 3️⃣ authenticatedFetch after both are declared
+    const authenticatedFetch = useCallback(
+        async (url: string, options: RequestInit = {}): Promise<Response> => {
+            let response: Response;
+
+            try {
+                response = await fetch(url, {
+                    ...options,
+                    credentials: 'include',
+                });
+            } catch (error) {
+                console.error(`Network error while fetching ${url}:`, error);
+                throw error instanceof Error ? error : new Error(String(error));
+            }
+
+            if (response.status === 401) {
+                const refreshSuccess = await refreshAuth();
+                if (refreshSuccess) {
+                    try {
+                        return await fetch(url, {
+                            ...options,
+                            credentials: 'include',
+                        });
+                    } catch (error) {
+                        console.error(`Network error while retrying ${url}:`, error);
+                        throw error instanceof Error ? error : new Error(String(error));
+                    }
+                } else {
+                    await logout();
+                    throw new Error('Session expired');
+                }
+            }
+
+            return response;
+        },
+        [refreshAuth, logout]
+    );
 
     const login = useCallback(async (identifier: string, password: string) => {
         setIsLoading(true);
@@ -110,22 +140,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setIsLoading(false);
         }
     }, [router, toast]);
-
-    const logout = useCallback(async () => {
-        try {
-            await fetch('/api/auth/logout', {
-                method: 'DELETE',
-                credentials: 'include',
-            });
-        } catch (error) {
-            console.error('Logout error:', error);
-        } finally {
-            setUser(null);
-            setBalance(null);
-            setIsAuthenticated(false);
-            router.push('/login');
-        }
-    }, [router]);
 
     const fetchBalance = useCallback(async () => {
         try {

@@ -21,7 +21,7 @@ jest.mock('next/navigation', () => ({
 jest.mock('next/image', () => ({
     __esModule: true,
     default: (props) => {
-        const { priority, ...otherProps } = props;
+        const { priority, loading, ...otherProps } = props;
         // eslint-disable-next-line @next/next/no-img-element
         return <img {...otherProps} />;
     },
@@ -36,18 +36,18 @@ jest.mock('@/hooks/use-toast', () => ({
     }),
 }));
 
-// Mock fetch globally
+// Mock fetch globally with proper types
 global.fetch = jest.fn();
 
-// Mock other browser APIs that might be missing in test environment
+// Mock browser APIs
 Object.defineProperty(window, 'matchMedia', {
     writable: true,
     value: jest.fn().mockImplementation(query => ({
         matches: false,
         media: query,
         onchange: null,
-        addListener: jest.fn(), // deprecated
-        removeListener: jest.fn(), // deprecated
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
         addEventListener: jest.fn(),
         removeEventListener: jest.fn(),
         dispatchEvent: jest.fn(),
@@ -111,7 +111,7 @@ Object.defineProperty(window, 'sessionStorage', {
     value: sessionStorageMock,
 });
 
-// Mock crypto.randomUUID for tests that might need it
+// Mock crypto
 Object.defineProperty(global, 'crypto', {
     value: {
         randomUUID: jest.fn(() => 'test-uuid-123'),
@@ -124,13 +124,12 @@ Object.defineProperty(global, 'crypto', {
     },
 });
 
-// Mock console methods to reduce noise in tests but keep errors visible
+// Mock console methods to reduce noise in tests
 const originalError = console.error;
 const originalWarn = console.warn;
 
 beforeAll(() => {
     console.error = (...args) => {
-        // Filter out specific React warnings that we don't need to see in tests
         if (
             typeof args[0] === 'string' && (
                 args[0].includes('Warning: ReactDOM.render is no longer supported') ||
@@ -144,7 +143,6 @@ beforeAll(() => {
     };
 
     console.warn = (...args) => {
-        // Filter out specific warnings we don't need in tests
         if (
             typeof args[0] === 'string' && (
                 args[0].includes('componentWillReceiveProps') ||
@@ -164,15 +162,12 @@ afterAll(() => {
 
 // Global cleanup after each test
 afterEach(() => {
-    // Clear all mocks
     jest.clearAllMocks();
 
-    // Clear fetch mock specifically
     if (global.fetch && typeof global.fetch.mockClear === 'function') {
         global.fetch.mockClear();
     }
 
-    // Clear localStorage and sessionStorage
     localStorageMock.getItem.mockClear();
     localStorageMock.setItem.mockClear();
     localStorageMock.removeItem.mockClear();
@@ -184,14 +179,14 @@ afterEach(() => {
     sessionStorageMock.clear.mockClear();
 });
 
-// Global error handler to catch unhandled promise rejections in tests
+// Global error handler
 process.on('unhandledRejection', (reason, promise) => {
     console.log('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-// Set test timeout to handle async operations
+// Set test timeout
 jest.setTimeout(10000);
 
-// Mock environment variables that might be needed
+// Mock environment variables
 process.env.NODE_ENV = 'test';
 process.env.API_BASE_URL = 'http://localhost:3001';
