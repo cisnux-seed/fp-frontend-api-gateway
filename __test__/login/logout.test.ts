@@ -1,4 +1,4 @@
-import { DELETE } from './route';
+import { DELETE } from '../../src/app/api/auth/logout/route';
 import { NextResponse } from 'next/server';
 
 jest.mock('next/headers'); // agar cookies() bisa dimock dari __mocks__

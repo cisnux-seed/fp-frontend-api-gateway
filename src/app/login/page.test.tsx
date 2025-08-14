@@ -12,7 +12,7 @@ jest.mock('next/navigation', () => ({
 // 🔧 Mock useAuth
 jest.mock('@/context/AuthContext', () => ({
   useAuth: jest.fn(),
-}));
+}));  
 
 describe('Login Page', () => {
   const mockPush = jest.fn();

@@ -1,6 +1,8 @@
 import {NextResponse, type NextRequest} from 'next/server';
 import {API_BASE_URL} from '@/libs/constants';
 
+jest.mock('next/server'); // akan pakai __mocks__/next/server.ts
+
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
